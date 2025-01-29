@@ -79,7 +79,7 @@ export class TransactionService implements OnModuleInit {
         const publicKey: Buffer = await this.walletService.getPublicKey(from)
         const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
        
-        const encoded = this.txnCrafter.pay(amt, fromAddr, to).addFirstValidRound(48133489).addLastValidRound(48134489).get().encode();
+        const encoded = this.txnCrafter.pay(amt, fromAddr, to).addFirstValidRound(48188159).addLastValidRound(48189159).get().encode();
 
         const sig = await this.sign(encoded, from);
 
@@ -96,6 +96,8 @@ export class TransactionService implements OnModuleInit {
         if (!from || !unit || totalTokens === undefined || totalTokens === null || decimals === undefined || decimals === null) {
             throw new Error('Invalid asset creation parameters');
         }
+        console.log(from, unit, decimals, totalTokens);
+        
 
         const publicKey: Buffer = await this.walletService.getPublicKey(from)
         const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
@@ -104,7 +106,7 @@ export class TransactionService implements OnModuleInit {
 
         const sig = await this.sign(encoded, from);
 
-        const ready = this.txnCrafter.addSignature(encoded, sig)
+        const ready = await this.txnCrafter.addSignature(encoded, sig)
 
         const txtId = await this.walletService.submitTransaction(ready)
 
