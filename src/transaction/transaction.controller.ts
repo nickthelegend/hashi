@@ -21,8 +21,16 @@ export class Transaction {
     }
 
     @Post("asset")
-    async createAsset(@Body() body: { from: string, unit: string, decimals: bigint, totalTokens: number }): Promise<string> {
+    async createAsset(@Body() body: { from: string, unit: string, decimals: number, totalTokens: number }): Promise<string> {
         // return this.txnService.createAsset(body.from, body.unit, body.decimals, body.totalTokens)
-        return await this.txnService.createAsset('test', 'tst', BigInt(0), 10)
+        return await this.txnService.asset('test', 'test', 0, 10)
     }
+
+    // // 733168409
+    @Post("asset-transfer")
+    async transferAsset(@Body() body: { assetId: number, from: string, to: string, amount: number | bigint }): Promise<string> {
+        // return this.txnService.createAsset(body.from, body.unit, body.decimals, body.totalTokens)
+        return await this.txnService.transferToken(733186475, 'test', 'C6A7MF2QX27SARKX32PUH2WWTUMFTH3UUBQ4DU4KBNXB4N2DTENO6HVF3M',1)
+    }
+
 }

@@ -1,16 +1,14 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common"
 import { VaultService } from "../vault/vault.service"
-import { sha512_256 } from "js-sha512"
-import base32 from "hi-base32"
 import { HttpService } from "@nestjs/axios"
 import { ConfigService } from "@nestjs/config"
-import { AxiosResponse } from "axios"
-import { AlgorandTransactionCrafter } from '@algorandfoundation/algo-models'
+import { AlgorandTransactionCrafter, AssetParamsBuilder } from '@algorandfoundation/algo-models'
+// import { AssetParams, AssetParamsBuilder } from "src/chain/algorand.asset.params";
 import { WalletService } from "src/wallet/wallet.service"
-import { sign } from "crypto"
-import { log } from "console"
-import { EncoderFactory } from "../chain/encoder.factory"
-import { AlgoTxCrafter, CrafterFactory } from "src/chain/crafter.factory"
+import { EncoderFactory } from "src/chain/encoder.factory"
+// import { AlgoTxCrafter, CrafterFactory } from "src/chain/crafter.factory"
+// import { AssetConfigTxBuilder, IAssetConfigTxBuilder } from "src/chain/algorand.transaction.acfg"
+import algosdk from "algosdk"
 
 
 @Injectable()
@@ -18,14 +16,17 @@ export class TransactionService implements OnModuleInit {
     constructor(private readonly vaultService: VaultService, 
         private readonly httpService: HttpService, 
         private readonly configService: ConfigService, 
-        private crafter: AlgoTxCrafter, 
+        // private crafter: AlgoTxCrafter, 
         private txnCrafter: AlgorandTransactionCrafter,
-        private readonly walletService: WalletService) {
-            this.crafter = CrafterFactory.getCrafter("algorand", this.configService)
+        private readonly walletService: WalletService,
+        private genesisId :string,
+        private genesisHash: string) {
+            // this.crafter = CrafterFactory.getCrafter("algorand", this.configService)
 
-            const genesisId: string = configService.get<string>("GENESIS_ID")
-			const genesisHash: string = configService.get<string>("GENESIS_HASH")
-            this.txnCrafter = new AlgorandTransactionCrafter(genesisId, genesisHash)
+            this.genesisId = configService.get<string>("GENESIS_ID")
+			this.genesisHash = configService.get<string>("GENESIS_HASH")
+            this.txnCrafter = new AlgorandTransactionCrafter(this.genesisId, this.genesisHash)
+
         }
     
     /**
@@ -56,7 +57,6 @@ export class TransactionService implements OnModuleInit {
 		//TODO: prompt new auth method
 
 		const string: string = (await this.walletService.rawSign(Buffer.from(data), key)).toString()
-
 		// split vault specific prefixes vault:${version}:signature
 		const signature = string.split(":")[2]
 
@@ -78,8 +78,11 @@ export class TransactionService implements OnModuleInit {
 
         const publicKey: Buffer = await this.walletService.getPublicKey(from)
         const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
+
+        const algodClient = new algosdk.Algodv2("", "https://testnet-api.algonode.cloud", "");
+        const suggestedParams = await algodClient.getTransactionParams().do();
        
-        const encoded = this.txnCrafter.pay(amt, fromAddr, to).addFirstValidRound(48188159).addLastValidRound(48189159).get().encode();
+        const encoded = this.txnCrafter.pay(amt, fromAddr, to).addFirstValidRound(Number(suggestedParams.firstValid)).addLastValidRound(Number(suggestedParams.lastValid)).get().encode();
 
         const sig = await this.sign(encoded, from);
 
@@ -90,9 +93,8 @@ export class TransactionService implements OnModuleInit {
         return txtId
     }
 
-
     
-    async createAsset(from: string, unit: string, decimals: bigint, totalTokens: number): Promise<string> {
+    async asset(from: string, unit: string, decimals: number, totalTokens: number): Promise<string> {
         if (!from || !unit || totalTokens === undefined || totalTokens === null || decimals === undefined || decimals === null) {
             throw new Error('Invalid asset creation parameters');
         }
@@ -102,7 +104,35 @@ export class TransactionService implements OnModuleInit {
         const publicKey: Buffer = await this.walletService.getPublicKey(from)
         const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
 
-        const encoded = this.crafter.asset(fromAddr, unit, decimals, totalTokens ).get().encode();
+        const algodClient = new algosdk.Algodv2("", "https://testnet-api.algonode.cloud", "");
+        const suggestedParams = await algodClient.getTransactionParams().do();
+
+        const assetParams = new AssetParamsBuilder().addTotal(totalTokens).addUnitName(unit).get();
+
+        const encoded = this.txnCrafter.createAsset(fromAddr, assetParams).addFirstValidRound(Number(suggestedParams.firstValid)).addLastValidRound(Number(suggestedParams.lastValid)).get().encode()  //.asset(fromAddr, unit, decimals, totalTokens, Number(suggestedParams.firstValid), Number(suggestedParams.lastValid)).get().encode();
+
+        const sig = await this.sign(encoded, from);
+
+        const ready = await this.txnCrafter.addSignature(encoded, sig)
+
+        const txtId = await this.walletService.submitTransaction(ready)
+
+        return txtId;
+       
+    }
+
+    async transferToken(assetId: number, from: string, to: string, amount: number): Promise<string> {
+        if (!from || !to || amount === undefined || amount === null || assetId === undefined || assetId === null) {
+            throw new Error('Invalid asset transfer parameters');
+        }
+
+        const publicKey: Buffer = await this.walletService.getPublicKey(from)
+        const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
+
+        const algodClient = new algosdk.Algodv2("", "https://testnet-api.algonode.cloud", "");
+        const suggestedParams = await algodClient.getTransactionParams().do();
+
+        const encoded = this.txnCrafter.transferAsset(fromAddr, assetId,  fromAddr, amount).addFirstValidRound(Number(suggestedParams.firstValid)).addLastValidRound(Number(suggestedParams.lastValid)).get().encode();
 
         const sig = await this.sign(encoded, from);
 

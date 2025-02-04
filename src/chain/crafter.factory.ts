@@ -2,25 +2,26 @@ import { ConfigService } from "@nestjs/config"
 import { Crafter } from "./crafter.role"
 import { AlgorandTransactionCrafter } from '@algorandfoundation/algo-models'
 import { AssetCreateTxBuilder, IAssetCreateTxBuilder } from "./asset.create"
-import algosdk, { SuggestedParams } from "algosdk"
+
 import { AssetTransfer, AssetTransferTxBuilder, IAssetTransferTxBuilder } from "./asset.transfer"
 
 export class AlgoTxCrafter extends AlgorandTransactionCrafter {
-	constructor(private readonly genesisId: string, private readonly genesisHash: string, private readonly configService: ConfigService) {
-		super(genesisId, genesisHash)
+	constructor(genesisIdCrafter: string, genesisHashCrafter: string, private readonly configService: ConfigService) {
+		super(genesisIdCrafter, genesisHashCrafter)
 	}
 
 	assetTransfer(assetId: number, from: string, to: string, amount: number | bigint): IAssetTransferTxBuilder {
-		return new AssetTransferTxBuilder(this.genesisId, this.genesisHash, assetId, from, to, amount)
+		return new AssetTransferTxBuilder(super['genesisId'], super['genesisHash'], assetId, from, to, amount)
 			.addFee(1000)
 	}
 
-	asset(from: string, unit: string, decimals: bigint, totalTokens: number): IAssetCreateTxBuilder {
-		return new AssetCreateTxBuilder(this.genesisId, this.genesisHash, decimals, totalTokens, false)
+	asset(from: string, unit: string, decimals: bigint, totalTokens: number, firstRound:number, lastRound:number): IAssetCreateTxBuilder {
+		
+		return new AssetCreateTxBuilder(super['genesisId'], super['genesisHash'], decimals, totalTokens, false)
 			.addSender(from)
 			.addFee(1000)
-			.addFirstValidRound(1000)
-			.addLastValidRound(2000)
+			.addFirstValidRound(firstRound)
+			.addLastValidRound(lastRound)
 			.addUnit(unit)
 	}
 }

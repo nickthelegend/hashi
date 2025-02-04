@@ -8,12 +8,12 @@ import { ChainModule } from "src/chain/chain.module"
 import { ConfigModule } from "@nestjs/config"
 import { TransactionService } from "./transaction.service"
 import { AlgorandTransactionCrafter } from '@algorandfoundation/algo-models'
-import { AlgoTxCrafter, CrafterFactory } from "src/chain/crafter.factory"
+// import { AlgoTxCrafter, CrafterFactory } from "src/chain/crafter.factory"
 
 @Module({
     imports: [HttpModule, VaultModule, ChainModule, ConfigModule.forRoot()],
     controllers: [Transaction],
-    providers: [WalletService, VaultService, TransactionService, AlgorandTransactionCrafter,AlgoTxCrafter, CrafterFactory],
+    providers: [WalletService, VaultService, TransactionService, AlgorandTransactionCrafter, String, Object],
 })
 
 export class TransactionModule {}

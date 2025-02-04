@@ -26,7 +26,7 @@
     "vault:roles": "npx tsx vault/roles.ts"
   },
   "dependencies": {
-    "@algorandfoundation/algo-models": "^0.0.2",
+    "@algorandfoundation/algo-models": "^0.0.4",
     "@nestjs/axios": "^3.1.2",
     "@nestjs/common": "10.4.9",
     "@nestjs/config": "3.3.0",
@@ -114,8 +114,8 @@
   },
   "peerDependencies": {
     "minimist": "1.2.8",
-    "optimist": "0.6.1",
     "mkdirp": "^0.5.4",
-    "node-fetch": "^2.6.1"
+    "node-fetch": "^2.6.1",
+    "optimist": "0.6.1"
   }
 }

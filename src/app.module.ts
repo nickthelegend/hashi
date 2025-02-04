@@ -31,7 +31,7 @@ function configuredModules(): Array<Type<any> | DynamicModule | Promise<DynamicM
 @Module({
 	imports: [WalletModule, VaultModule, HttpModule, TransactionModule], // ...configuredModules()
 	controllers: [AppController],
-	providers: [WalletService, ConfigService, TransactionService, AlgorandTransactionCrafter, AlgoTxCrafter, CrafterFactory],
+	providers: [WalletService, ConfigService, TransactionService, AlgorandTransactionCrafter, String, Object],
 })
 export class AppModule {}
 
