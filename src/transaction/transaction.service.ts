@@ -72,6 +72,9 @@ export class TransactionService implements OnModuleInit {
      * 
      */
     async makePayment(from:string, to:string, amt:number): Promise<string> {
+        
+        console.log(amt);
+        
         if (!from || !to || amt === undefined || amt === null) {
             throw new Error('Invalid payment parameters');
         }
@@ -91,6 +94,7 @@ export class TransactionService implements OnModuleInit {
         const txtId = await this.walletService.submitTransaction(ready)
 
         return txtId
+        
     }
 
     
@@ -132,11 +136,24 @@ export class TransactionService implements OnModuleInit {
         const algodClient = new algosdk.Algodv2("", "https://testnet-api.algonode.cloud", "");
         const suggestedParams = await algodClient.getTransactionParams().do();
 
-        const encoded = this.txnCrafter.transferAsset(fromAddr, assetId,  fromAddr, amount).addFirstValidRound(Number(suggestedParams.firstValid)).addLastValidRound(Number(suggestedParams.lastValid)).get().encode();
+        const encoded = this.txnCrafter.transferAsset(fromAddr, assetId,  to, amount).addFirstValidRound(Number(suggestedParams.firstValid)).addLastValidRound(Number(suggestedParams.lastValid)).get().encode();
 
         const sig = await this.sign(encoded, from);
 
         const ready = await this.txnCrafter.addSignature(encoded, sig)
+
+        const txtId = await this.walletService.submitTransaction(ready)
+
+        return txtId;
+    }
+
+    async signAndSubmit(txn: string, key: string): Promise<string> {
+        const publicKey: Buffer = await this.walletService.getPublicKey(key)
+        const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
+
+        const sig = await this.sign(Buffer.from(txn), key);
+
+        const ready = await this.txnCrafter.addSignature(Buffer.from(txn), sig)
 
         const txtId = await this.walletService.submitTransaction(ready)
 
