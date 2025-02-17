@@ -111,9 +111,13 @@ export class TransactionService implements OnModuleInit {
         const algodClient = new algosdk.Algodv2("", "https://testnet-api.algonode.cloud", "");
         const suggestedParams = await algodClient.getTransactionParams().do();
 
-        const assetParams = new AssetParamsBuilder().addTotal(totalTokens).addUnitName(unit).get();
+        const assetParams = new AssetParamsBuilder().addTotal(totalTokens).addUnitName(unit);
 
-        const encoded = this.txnCrafter.createAsset(fromAddr, assetParams).addFirstValidRound(Number(suggestedParams.firstValid)).addLastValidRound(Number(suggestedParams.lastValid)).get().encode()  //.asset(fromAddr, unit, decimals, totalTokens, Number(suggestedParams.firstValid), Number(suggestedParams.lastValid)).get().encode();
+        if (decimals) {
+            assetParams.addDecimals(decimals)
+        }
+        
+        const encoded = this.txnCrafter.createAsset(fromAddr, assetParams.get()).addFirstValidRound(Number(suggestedParams.firstValid)).addLastValidRound(Number(suggestedParams.lastValid)).get().encode() 
 
         const sig = await this.sign(encoded, from);
 
