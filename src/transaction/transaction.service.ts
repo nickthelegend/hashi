@@ -6,7 +6,7 @@ import { AlgorandTransactionCrafter, AssetParamsBuilder } from '@algorandfoundat
 // import { AssetParams, AssetParamsBuilder } from "src/chain/algorand.asset.params";
 import { WalletService } from "src/wallet/wallet.service"
 import { EncoderFactory } from "src/chain/encoder.factory"
-// import { AlgoTxCrafter, CrafterFactory } from "src/chain/crafter.factory"
+import { AlgoTxCrafter, CrafterFactory } from "src/chain/crafter.factory"
 // import { AssetConfigTxBuilder, IAssetConfigTxBuilder } from "src/chain/algorand.transaction.acfg"
 import algosdk from "algosdk"
 
@@ -147,7 +147,7 @@ export class TransactionService implements OnModuleInit {
         return txtId;
     }
 
-    async signAndSubmit(txn: string, key: string): Promise<string> {
+    /* async signAndSubmit(txn: string, key: string): Promise<string> {
         const publicKey: Buffer = await this.walletService.getPublicKey(key)
         const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
 
@@ -158,6 +158,42 @@ export class TransactionService implements OnModuleInit {
         const txtId = await this.walletService.submitTransaction(ready)
 
         return txtId;
-    }
+    } */
     
+
+        async createApplication ( 
+            from: string, 
+            approvalProgram: string, 
+            clearProgram: string, 
+            globalSchema: { numByteSlice: number, numUint: number }, localSchema: { numByteSlice: number, numUint: number } 
+        ): Promise<string> {
+            if (!from || !approvalProgram || !clearProgram || !globalSchema || !localSchema) {
+                throw new Error('Invalid application creation parameters');
+            }
+
+            const crafter = CrafterFactory.getCrafter("algorand", this.configService)
+
+            const publicKey: Buffer = await this.walletService.getPublicKey(from)
+            const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
+
+            const algodClient = new algosdk.Algodv2("", "https://testnet-api.algonode.cloud", "");
+            const suggestedParams = await algodClient.getTransactionParams().do();
+
+            const encoded = crafter.createApplication(fromAddr, 
+                Buffer.from(approvalProgram, 'base64'), 
+                Buffer.from(clearProgram,'base64'), 
+                globalSchema, 
+                localSchema, 
+                Number(suggestedParams.firstValid), 
+                Number(suggestedParams.lastValid))
+                .get().encode();
+            
+            const sig = await this.sign(encoded, from);
+
+            const ready = await this.txnCrafter.addSignature(encoded, sig)
+    
+            const txtId = await this.walletService.submitTransaction(ready)
+    
+            return txtId;
+        }
 }
