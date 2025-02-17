@@ -36,7 +36,7 @@ export class AlgoTxCrafter extends AlgorandTransactionCrafter {
 		.addLocalSchema(localSchema.numByteSlice, localSchema.numUint)
 		.addFirstValidRound(firstRound)
 		.addLastValidRound(lastRound)
-		.addPragmaVersion(0)
+		.addOnCompleteOption(0)
 	}
 }
 

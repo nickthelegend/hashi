@@ -42,7 +42,7 @@ export interface IApplicationNoOpTxBuilder {
     addForeignAssets(assets: number[]): IApplicationNoOpTxBuilder;
     addForeignApps(apps: number[]): IApplicationNoOpTxBuilder;
     addBoxes(boxes: { i: number; n: string }[]): IApplicationNoOpTxBuilder;
-    addPragmaVersion(version: number): IApplicationNoOpTxBuilder;
+    addOnCompleteOption(version: number): IApplicationNoOpTxBuilder;
 
     get(): ApplicationCall;
 }
@@ -128,7 +128,7 @@ export class ApplicationTxBuilder implements IApplicationNoOpTxBuilder {
         return this;
     }
 
-    addPragmaVersion(version: number): IApplicationNoOpTxBuilder {
+    addOnCompleteOption(version: number): IApplicationNoOpTxBuilder {
         this.tx.apan = version;
         return this;
     }
