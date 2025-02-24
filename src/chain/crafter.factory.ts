@@ -30,6 +30,7 @@ export class AlgoTxCrafter extends AlgorandTransactionCrafter {
 	createApplication(from: string, approvalProgram: Uint8Array, clearProgram: Uint8Array, globalSchema: { numByteSlice: number, numUint: number }, localSchema: { numByteSlice: number, numUint: number }, firstRound:number, lastRound:number): any {
 		return new ApplicationTxBuilder(this.genesisIdCrafter, this.genesisHashCrafter)
 		.addSender(from)
+		.addFee(1000)
 		.addApprovalProgram(approvalProgram)
 		.addClearProgram(clearProgram)
 		.addGlobalSchema(globalSchema.numByteSlice, globalSchema.numUint)

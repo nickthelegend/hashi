@@ -89,12 +89,12 @@ export class ApplicationTxBuilder implements IApplicationNoOpTxBuilder {
     }
 
     addGlobalSchema(nbs: number, nui: number): IApplicationNoOpTxBuilder {
-        this.tx.apgs = { nbs, nui };
+        this.tx.apgs = { nbs: nbs, nui:nui };
         return this;
     }
 
     addLocalSchema(nbs: number, nui: number): IApplicationNoOpTxBuilder {
-        this.tx.apls = { nbs, nui };
+        this.tx.apls = { nbs: nbs, nui: nui };
         return this;
     }
 

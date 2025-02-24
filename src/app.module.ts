@@ -10,6 +10,7 @@ import { TransactionService } from "./transaction/transaction.service"
 import { AlgorandTransactionCrafter } from '@algorandfoundation/algo-models'
 import { TransactionModule } from "./transaction/transaction.module"
 import { AlgoTxCrafter, CrafterFactory } from "src/chain/crafter.factory"
+import { AlgorandClient, Config } from '@algorandfoundation/algokit-utils'
 
 function configuredModules(): Array<Type<any> | DynamicModule | Promise<DynamicModule> | ForwardReference> {
 	const csv_modules_names: string[] = process.env.CHOOSEN_MODULES ? process.env.CHOOSEN_MODULES.split(",") : []
@@ -30,8 +31,15 @@ function configuredModules(): Array<Type<any> | DynamicModule | Promise<DynamicM
 
 @Module({
 	imports: [WalletModule, VaultModule, HttpModule, TransactionModule], // ...configuredModules()
-	controllers: [AppController],
-	providers: [WalletService, ConfigService, TransactionService, AlgorandTransactionCrafter, String, Object],
+	controllers: [],
+	providers: [
+		WalletService,
+		ConfigService,
+		TransactionService,
+		AlgorandTransactionCrafter,
+		String,
+		Object,
+	],
 })
 export class AppModule {}
 

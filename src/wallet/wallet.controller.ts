@@ -1,4 +1,4 @@
-import { Controller, Logger } from "@nestjs/common"
+import { Controller, Logger, Post, Body } from "@nestjs/common"
 import { WalletService } from "./wallet.service"
 import { EncoderFactory } from "../chain/encoder.factory"
 import { Crafter } from "../chain/crafter.role"
@@ -22,9 +22,10 @@ export class Wallet {
 	 *
 	 * @returns
 	 */
-	async getAddress(encoding: "algorand" = "algorand", index: number = 0): Promise<string> {
-		const publicKey: Buffer = await this.walletService.getPublicKey("test")
-		return EncoderFactory.getEncoder(encoding).encodeAddress(publicKey)
+	@Post("address")
+	async getAddress(@Body() body: { key: string }, encoding: "algorand" = "algorand", index: number = 0): Promise<{ address: string}> {
+		const publicKey: Buffer = await this.walletService.getPublicKey(body.key)
+		return { address : EncoderFactory.getEncoder(encoding).encodeAddress(publicKey)}
 	}
 
 	/**

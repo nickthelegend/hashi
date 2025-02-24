@@ -80,7 +80,8 @@ describe("Wallet Controller", () => {
 	it("(OK) getAddress()", async () => {
 		const bytes = randomBytes(32)
 		walletServiceMock.getPublicKey.mockResolvedValueOnce(Buffer.from(bytes))
-		const addr: string = await controller.getAddress()
+		const key = 'test'
+		const addr: string = (await controller.getAddress({ key })).address
 		expect(addr.length).toBe(58)
 		expect(addr).toBe(new AlgorandEncoder().encodeAddress(Buffer.from(bytes)))
 	})
