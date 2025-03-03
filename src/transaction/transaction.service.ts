@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit } from "@nestjs/common"
 import { VaultService } from "../vault/vault.service"
 import { HttpService } from "@nestjs/axios"
 import { ConfigService } from "@nestjs/config"
-import { AlgorandTransactionCrafter, AssetParamsBuilder } from '@algorandfoundation/algo-models'
+import { AlgorandEncoder, AlgorandTransactionCrafter, AssetParamsBuilder } from '@algorandfoundation/algo-models'
 // import { AssetParams, AssetParamsBuilder } from "src/chain/algorand.asset.params";
 import { WalletService } from "src/wallet/wallet.service"
 import { EncoderFactory } from "src/chain/encoder.factory"
@@ -79,110 +79,171 @@ export class TransactionService implements OnModuleInit {
 	}
 
     /**
-     * @param from - Key of the sender
      * 
+     * @param from 
+     * @param to 
+     * @param amt 
+     * @returns 
      */
-    async makePayment(from:string, to:string, amt:number): Promise<string> {
+    async makePayment(from:string, to:string, amt:number): Promise<{ txnId: string, error: string }> {
         
         if (!from || !to || amt === undefined || amt === null) {
             throw new Error('Invalid payment parameters');
         }
 
-        const publicKey: Buffer = await this.walletService.getPublicKey(from)
-        const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
+        try {
+            
+            const publicKey: Buffer = await this.walletService.getPublicKey(from)
+            const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
 
-        const suggestedParams = await this.getSuggestedParams();
-       
-        const encoded = this.txnCrafter.pay(amt, fromAddr, to).addFirstValidRound(Number(suggestedParams.firstValid)).addLastValidRound(Number(suggestedParams.lastValid)).get().encode();
-
-        const sig = await this.sign(encoded, from);
-
-        const ready = await this.txnCrafter.addSignature(encoded, sig)
-
-        const txtId = await this.walletService.submitTransaction(ready)
-
-        return txtId
+            const suggestedParams = await this.getSuggestedParams();
         
+            const encoded = this.txnCrafter.pay(amt, fromAddr, to)
+                                            .addFirstValidRound(Number(suggestedParams.firstValid))
+                                            .addLastValidRound(Number(suggestedParams.lastValid))
+                                            .get().encode();
+                                                         
+
+            const txnId = await this.signAndSubmitTransaction(encoded, from);
+            
+            return { txnId, error : null }
+
+        } catch (error) {
+            return { txnId: null, error: error.response.data.message}; 
+        }
     }
 
-    
-    async asset(from: string, unit: string, decimals: number, totalTokens: number, params: Assetparams = {}): Promise<bigint> {
+    /**
+     * 
+     * @param from - Hashi vault key name
+     * @param unit 
+     * @param decimals 
+     * @param totalTokens 
+     * @param params 
+     * @returns 
+     */
+    async asset(from: string, unit: string, decimals: number, totalTokens: number, params: Assetparams = {}): Promise<{txnId:string, assetId: string, error : string}> {
         if (!from || !unit || totalTokens === undefined || totalTokens === null || decimals === undefined || decimals === null) {
             throw new Error('Invalid asset creation parameters');
         }
  
-        const publicKey: Buffer = await this.walletService.getPublicKey(from)
-        const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
+        try {
+            const publicKey: Buffer = await this.walletService.getPublicKey(from)
+            const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
 
-        const suggestedParams = await this.getSuggestedParams();
+            const suggestedParams = await this.getSuggestedParams();
 
-        const assetParams = new AssetParamsBuilder().addTotal(totalTokens).addUnitName(unit);
+            const crafter = CrafterFactory.getCrafter("algorand", this.configService)
 
-        if (decimals) {
-            assetParams.addDecimals(decimals)
+            const assetCreateTxBuilder = crafter.asset(fromAddr, unit, decimals, totalTokens, Number(suggestedParams.firstValid), Number(suggestedParams.lastValid), params.defaultFrozen)
+
+            // Add optional parameters if they exist
+            if (params.assetName) {
+                assetCreateTxBuilder.addName(params.assetName);
+            }
+            if (params.url) {
+                assetCreateTxBuilder.addUrl(params.url);
+            }
+            
+            if (params.managerAddress) {
+                assetCreateTxBuilder.addManagerAddress(params.managerAddress);
+            }
+            if (params.reserveAddress) {
+                assetCreateTxBuilder.addReserveAddress(params.reserveAddress);
+            }
+            if (params.freezeAddress) {
+                assetCreateTxBuilder.addFreezeAddress(params.freezeAddress);
+            }
+            if (params.clawbackAddress) {
+                assetCreateTxBuilder.addClawbackAddress(params.clawbackAddress);
+            }
+            
+            const encoded =  assetCreateTxBuilder.get().encode(); 
+
+            const txnId = await this.signAndSubmitTransaction(encoded, from);
+
+            const algorand = this.algorand("testnet")
+
+            const transaction = await this.waitForTransaction(txnId, 10, 2000, algorand)
+
+            const assetId = transaction.transaction.createdAssetIndex;
+
+            return { assetId: assetId.toString(), txnId, error: null};
+
+        } catch (error) {
+            console.log(error);
+            
+            return { assetId:null, txnId: null, error: error.response.data.message};  
         }
-
-
-          // Add optional parameters if they exist
-        if (params.assetName) {
-            assetParams.addAssetName(params.assetName);
-        }
-        // if (params.url) {
-        //     assetParams (params.assetName);
-        // }
-        if (params.defaultFrozen !== undefined && params.defaultFrozen === true) {
-            assetParams.addDefaultFrozen(params.defaultFrozen);
-        }
-        if (params.managerAddress) {
-            assetParams.addManagerAddress(params.managerAddress);
-        }
-        if (params.reserveAddress) {
-            assetParams.addReserveAddress(params.reserveAddress);
-        }
-        if (params.freezeAddress) {
-            assetParams.addFreezeAddress(params.freezeAddress);
-        }
-        if (params.clawbackAddress) {
-            assetParams.addClawbackAddress(params.clawbackAddress);
-        }
-        
-        const encoded = this.txnCrafter.createAsset(fromAddr, assetParams.get()).addFirstValidRound(Number(suggestedParams.firstValid)).addLastValidRound(Number(suggestedParams.lastValid)).get().encode() 
-
-        const sig = await this.sign(encoded, from);
-
-        const ready = await this.txnCrafter.addSignature(encoded, sig)
-
-        const txtId = await this.walletService.submitTransaction(ready)
-
-        const algorand = this.algorand("testnet")
-
-        const transaction = await this.waitForTransaction(txtId, 10, 2000, algorand)
-
-        const assetId = transaction.transaction.createdAssetIndex;
-
-        return assetId;
        
     }
 
-    async transferToken(assetId: number, from: string, to: string, amount: number): Promise<string> {
+    /**
+     * 
+     * @param assetId 
+     * @param from - Hashi vault key name
+     * @param to 
+     * @param amount 
+     * @returns 
+     */
+    async transferToken(assetId: number, from: string, to: string, amount: number): Promise<{ txnId:string, error : string }> {
         if (!from || !to || amount === undefined || amount === null || assetId === undefined || assetId === null) {
             throw new Error('Invalid asset transfer parameters');
         }
 
-        const publicKey: Buffer = await this.walletService.getPublicKey(from)
-        const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
+        try {            
+            const publicKey: Buffer = await this.walletService.getPublicKey(from)
+            const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
 
-        const suggestedParams = await this.getSuggestedParams();
+            const suggestedParams = await this.getSuggestedParams();
 
-        const encoded = this.txnCrafter.transferAsset(fromAddr, assetId,  to, amount).addFirstValidRound(Number(suggestedParams.firstValid)).addLastValidRound(Number(suggestedParams.lastValid)).get().encode();
+            const encoded = this.txnCrafter.transferAsset(fromAddr, assetId,  to, amount)
+                                            .addFirstValidRound(Number(suggestedParams.firstValid))
+                                            .addLastValidRound(Number(suggestedParams.lastValid))
+                                            .get().encode();
 
-        const sig = await this.sign(encoded, from);
+            const txnId = await this.signAndSubmitTransaction(encoded, from);
 
-        const ready = await this.txnCrafter.addSignature(encoded, sig)
+            return { txnId, error: null};
 
-        const txtId = await this.walletService.submitTransaction(ready)
+        } catch (error) {
+            return { txnId: null, error: error.response.data.message};
+        }
+    }
 
-        return txtId;
+    /**
+     * 
+     * @param assetId 
+     * @param from - Hashi vault key name
+     * @returns 
+     */
+    async optInAsset(assetId: number, from: string): Promise<{ txnId:string, error : string }> {
+        if (!from || assetId === undefined || assetId === null) {
+            throw new Error('Invalid asset opt-in parameters');
+        }       
+
+        try {
+            
+            const publicKey: Buffer = await this.walletService.getPublicKey(from)
+            const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
+
+            const suggestedParams = await this.getSuggestedParams();
+
+            const crafter = CrafterFactory.getCrafter("algorand", this.configService)
+
+            const encoded = crafter.assetTransfer(assetId, fromAddr, fromAddr, 0)
+                                    .addFirstValidRound(Number(suggestedParams.firstValid))
+                                    .addLastValidRound(Number(suggestedParams.lastValid))
+                                    .get().encode()
+
+            const txnId = await this.signAndSubmitTransaction(encoded, from)
+            
+            return  { txnId, error: null};
+
+        } catch (error) {
+            return { txnId: null, error: error.response.data.message};
+                // console.log(error);
+        }
     }
 
     algorand(net : string): AlgorandClient {
@@ -209,6 +270,18 @@ export class TransactionService implements OnModuleInit {
         }
     }
 
+    async signAndSubmitTransaction(encoded: Uint8Array, from: string): Promise<string> {
+        const sig = await this.sign(encoded, from);
+
+        const ready = await this.txnCrafter.addSignature(encoded, sig)
+
+        const txtId = await this.walletService.submitTransaction(ready)
+
+        return txtId;
+    }
+
+    
+
     async createApplication ( 
         from: string, 
         approvalProgram: string, 
@@ -226,24 +299,43 @@ export class TransactionService implements OnModuleInit {
 
         const algodClient = new algosdk.Algodv2("", "https://testnet-api.algonode.cloud", "");
         const suggestedParams = await algodClient.getTransactionParams().do();
-
-    //    const approvalProgram1 = algodClient.compile(approvalProgram).do();
         
         const encoded = crafter.createApplication(fromAddr, 
-            Buffer.from(approvalProgram, 'base64'), 
-            Buffer.from(clearProgram,'base64'), 
+            algosdk.base64ToBytes(approvalProgram), 
+            algosdk.base64ToBytes(clearProgram), 
             globalSchema, 
             localSchema, 
-            Number(suggestedParams.firstValid), 
-            Number(suggestedParams.lastValid))
+            suggestedParams.firstValid, 
+            suggestedParams.lastValid)
             .get().encode();
-        
-        const sig = await this.sign(encoded, from);
 
-        const ready = await this.txnCrafter.addSignature(encoded, sig)
+            console.log(encoded);
+            
 
-        const txtId = await this.walletService.submitTransaction(ready)
+        // const appCreateTxn = algosdk.makeApplicationCreateTxnFromObject({
+        //     sender: fromAddr,
+        //     approvalProgram: algosdk.base64ToBytes(approvalProgram),
+        //     clearProgram: algosdk.base64ToBytes(clearProgram), 
+        //     numGlobalByteSlices: globalSchema.numByteSlice,
+        //     numGlobalInts: globalSchema.numUint,
+        //     numLocalByteSlices: localSchema.numByteSlice,
+        //     numLocalInts: localSchema.numUint,
+        //     suggestedParams,
+        //     onComplete: algosdk.OnApplicationComplete.NoOpOC,
+        //   }).toEncodingData();
 
-        return txtId;
+        //   console.log(appCreateTxn);
+          
+        //   const encoded = new AlgorandEncoder().encodeTransaction(appCreateTxn)
+            
+
+        //   console.log( new Uint8Array(appCreateTxn.bytesToSign()) );
+          
+
+        // const encoded = new Uint8Array(appCreateTxn.bytesToSign())
+
+        const txnId = await this.signAndSubmitTransaction(encoded, from) // 'Test';//
+
+        return txnId;
     }
 }

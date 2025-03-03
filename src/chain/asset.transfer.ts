@@ -39,7 +39,8 @@ export class AssetTransferTxBuilder implements IAssetTransferTxBuilder {
 		this.tx.type = "axfer"
 		this.tx.fee = 1000
         this.tx.xaid = assetId
-        this.tx.aamt = amount
+		if(amount)
+        	this.tx.aamt = amount
         this.tx.snd = new AlgorandEncoder().decodeAddress(from)
         this.tx.arcv = new AlgorandEncoder().decodeAddress(to)
 	}

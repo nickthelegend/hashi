@@ -10,7 +10,7 @@ export class AssetCreate {
 	gh: Uint8Array
 
 	apar: {
-		dc: bigint
+		dc?: bigint
 		t: number
 		df?: boolean
 		am?: Uint8Array
@@ -39,6 +39,10 @@ export interface IAssetCreateTxBuilder {
 	addUrl(url: string): IAssetCreateTxBuilder
 	addName(name: string): IAssetCreateTxBuilder
 	addUnit(unit: string): IAssetCreateTxBuilder
+	addDefaultFreeze(defaultFrozen: boolean): IAssetCreateTxBuilder
+	addDecimals(decimals: bigint): IAssetCreateTxBuilder
+	addTotalTokens(totalTokens: number): IAssetCreateTxBuilder
+	addClawbackAddress(clawback: string): IAssetCreateTxBuilder
 	addManagerAddress(manager: string): IAssetCreateTxBuilder
 	addReserveAddress(reserve: string): IAssetCreateTxBuilder
 	addFreezeAddress(freeze: string): IAssetCreateTxBuilder
@@ -50,18 +54,19 @@ export interface IAssetCreateTxBuilder {
 export class AssetCreateTxBuilder implements IAssetCreateTxBuilder {
 	private tx: AssetCreate
 
-	constructor(genesisId: string, genesisHash: string, decimals: bigint, totalTokens: number, defaultFreeze: boolean = false) {
+	constructor(genesisId: string, genesisHash: string, decimals: bigint, totalTokens: number) {
 		this.tx = new AssetCreate()
 		this.tx.gh = new Uint8Array(Buffer.from(genesisHash, "base64"))
 		this.tx.gen = genesisId
 		this.tx.type = "acfg"
 		this.tx.fee = 1000
 		this.tx.apar = {
-			dc: decimals,
+			// dc: decimals,
 			t: totalTokens
 		}
 
-		defaultFreeze ? this.tx.apar.df = defaultFreeze : null
+		
+		// defaultFreeze ? this.tx.apar.df = defaultFreeze : null
 	}
 
 	addSender(sender: string): IAssetCreateTxBuilder {
@@ -116,6 +121,21 @@ export class AssetCreateTxBuilder implements IAssetCreateTxBuilder {
 
 	addClawbackAddress(clawback: string): IAssetCreateTxBuilder {
 		this.tx.apar.c = new AlgorandEncoder().decodeAddress(clawback)
+		return this
+	}
+
+	addDecimals(decimals: bigint): IAssetCreateTxBuilder {
+		this.tx.apar.dc = decimals
+		return this
+	}
+
+	addTotalTokens(totalTokens: number): IAssetCreateTxBuilder {
+		this.tx.apar.t = totalTokens
+		return this
+	}
+
+	addDefaultFreeze(defaultFreeze: boolean): IAssetCreateTxBuilder {
+		this.tx.apar.df = defaultFreeze
 		return this
 	}
 

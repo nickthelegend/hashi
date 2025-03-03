@@ -1,24 +1,33 @@
 import { AlgorandEncoder } from "@algorandfoundation/algo-models";
 
 export class ApplicationCall {
-    type: string;
-    snd: Uint8Array;
-    fee: number;
-    fv: number;
-    lv: number;
-    gen: string;
-    gh: Uint8Array;
-    apap?: Uint8Array; // Approval program
-    apsu?: Uint8Array; // Clear state program
-    apgs?: { nbs: number; nui: number }; // Global schema
-    apls?: { nbs: number; nui: number }; // Local schema
-    apid?: number; // Application id
-    apaa?: Uint8Array[]; // Application arguments
-    apat?: Uint8Array[]; // Accounts
-    apfa?: number[]; // Foreign assets
-    apas?: number[]; // Foreign apps
-    apbx?: { i: number; n: string }[]; // Boxes
-    apan?: number; // #pragma version
+    type: string
+    snd: Uint8Array
+    fee: number
+    fv: bigint
+    lv: bigint
+    gen: string
+    gh: Uint8Array
+    apap?: Uint8Array // Approval program
+    apsu?: Uint8Array // Clear state program
+    apgs?: { 
+        nbs: number 
+        nui: number 
+        }; // Global schema
+    apls?: { 
+        nbs: number
+        nui: number 
+    }; // Local schema
+    apid?: number // Application id
+    apaa?: Uint8Array[] // Application arguments
+    apat?: Uint8Array[] // Accounts
+    apfa?: number[] // Foreign assets
+    apas?: number[] // Foreign apps
+    apbx?: { 
+        i: number 
+        n: string 
+    }[] // Boxes
+    apan?: number // #onComplete
 
     // encode the transaction
     encode(): Uint8Array {
@@ -30,8 +39,8 @@ export class ApplicationCall {
 export interface IApplicationNoOpTxBuilder {
     addSender(sender: string): IApplicationNoOpTxBuilder;
     addFee(fee: number): IApplicationNoOpTxBuilder;
-    addFirstValidRound(firstValid: number): IApplicationNoOpTxBuilder;
-    addLastValidRound(lastValid: number): IApplicationNoOpTxBuilder;
+    addFirstValidRound(firstValid: bigint): IApplicationNoOpTxBuilder;
+    addLastValidRound(lastValid: bigint): IApplicationNoOpTxBuilder;
     addApprovalProgram(apap: Uint8Array): IApplicationNoOpTxBuilder;
     addClearProgram(apsu: Uint8Array): IApplicationNoOpTxBuilder;
     addGlobalSchema(nbs: number, nui: number): IApplicationNoOpTxBuilder;
@@ -68,12 +77,12 @@ export class ApplicationTxBuilder implements IApplicationNoOpTxBuilder {
         return this;
     }
 
-    addFirstValidRound(firstValid: number): IApplicationNoOpTxBuilder {
+    addFirstValidRound(firstValid: bigint): IApplicationNoOpTxBuilder {
         this.tx.fv = firstValid;
         return this;
     }
 
-    addLastValidRound(lastValid: number): IApplicationNoOpTxBuilder {
+    addLastValidRound(lastValid: bigint): IApplicationNoOpTxBuilder {
         this.tx.lv = lastValid;
         return this;
     }
@@ -89,12 +98,12 @@ export class ApplicationTxBuilder implements IApplicationNoOpTxBuilder {
     }
 
     addGlobalSchema(nbs: number, nui: number): IApplicationNoOpTxBuilder {
-        this.tx.apgs = { nbs: nbs, nui:nui };
+        this.tx.apgs = { nbs: 0, nui:0 };
         return this;
     }
 
     addLocalSchema(nbs: number, nui: number): IApplicationNoOpTxBuilder {
-        this.tx.apls = { nbs: nbs, nui: nui };
+        this.tx.apls = { nbs: 0, nui: 0 };
         return this;
     }
 
