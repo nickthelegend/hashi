@@ -13,21 +13,31 @@ export class AlgoTxCrafter extends AlgorandTransactionCrafter {
 	}
 
 	assetTransfer(assetId: number, from: string, to: string, amount: number | bigint): IAssetTransferTxBuilder {
-		return new AssetTransferTxBuilder(super['genesisId'], super['genesisHash'], assetId, from, to, amount)
+		return new AssetTransferTxBuilder(this.genesisIdCrafter, this.genesisHashCrafter, assetId, from, to, amount)
 			.addFee(1000)
 	}
 
-	asset(from: string, unit: string, decimals: bigint, totalTokens: number, firstRound:number, lastRound:number): IAssetCreateTxBuilder {
+	asset(from: string, unit: string, decimals: bigint, totalTokens: number, firstRound:number, lastRound:number, defaultFrozen : boolean): IAssetCreateTxBuilder {
 		
-		return new AssetCreateTxBuilder(this.genesisIdCrafter, this.genesisHashCrafter, decimals, totalTokens, false)
+		const assetBuilder =  new AssetCreateTxBuilder(this.genesisIdCrafter, this.genesisHashCrafter, decimals, totalTokens)
 			.addSender(from)
 			.addFee(1000)
 			.addFirstValidRound(firstRound)
 			.addLastValidRound(lastRound)
 			.addUnit(unit)
+			.addTotalTokens(totalTokens)
+
+			if(decimals){
+				assetBuilder.addDecimals(decimals)
+			}
+
+			if(defaultFrozen){
+				assetBuilder.addDefaultFreeze(defaultFrozen)
+			}
+		return assetBuilder;	
 	}
 
-	createApplication(from: string, approvalProgram: Uint8Array, clearProgram: Uint8Array, globalSchema: { numByteSlice: number, numUint: number }, localSchema: { numByteSlice: number, numUint: number }, firstRound:number, lastRound:number): any {
+	createApplication(from: string, approvalProgram: Uint8Array, clearProgram: Uint8Array, globalSchema: { numByteSlice: number, numUint: number }, localSchema: { numByteSlice: number, numUint: number }, firstRound:bigint, lastRound:bigint): any {
 		return new ApplicationTxBuilder(this.genesisIdCrafter, this.genesisHashCrafter)
 		.addSender(from)
 		.addFee(1000)
@@ -37,7 +47,13 @@ export class AlgoTxCrafter extends AlgorandTransactionCrafter {
 		.addLocalSchema(localSchema.numByteSlice, localSchema.numUint)
 		.addFirstValidRound(firstRound)
 		.addLastValidRound(lastRound)
+		.addApplicationId(0)
 		.addOnCompleteOption(0)
+        .addApplicationArgs([])  // Empty array as default
+        .addAccounts([])         // Empty array as default
+        .addForeignAssets([])    // Empty array as default
+        .addForeignApps([])      // Empty array as default
+        .addBoxes([])            // Empty array as default
 	}
 }
 
