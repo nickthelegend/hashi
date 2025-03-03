@@ -88,10 +88,23 @@ export class Transaction {
 
         const decimals = Number(body.decimals)
         const totalTokens = Number(body.totalTokens)
+
+        let defaultFrozen = false;
+        if (body.defaultFrozen !== undefined) {
+            // If it's already a boolean, use it directly
+            if (typeof body.defaultFrozen === 'boolean') {
+                defaultFrozen = body.defaultFrozen;
+            } 
+            // If it's a string 'true' or 'false', convert appropriately
+            else if (typeof body.defaultFrozen === 'string') {
+                defaultFrozen = body.defaultFrozen === 'true';
+            }
+        }
+
         const params = {
             assetName: body.assetName,
             url: body.url,
-            defaultFrozen: Boolean(body.defaultFrozen),
+            defaultFrozen: defaultFrozen,
             managerAddress: body.managerAddress,
             reserveAddress: body.reserveAddress,
             freezeAddress: body.freezeAddress,
