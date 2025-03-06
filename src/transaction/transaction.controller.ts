@@ -145,7 +145,7 @@ export class Transaction {
     }
 
    @Post("create-application")
-   async createApplication(@Body() body: { from: string, approvalProgram: string, clearProgram: string, globalSchema: { numByteSlice: number, numUint: number }, localSchema: { numByteSlice: number, numUint: number } }): Promise<string> {
+   async createApplication(@Body() body: { from: string, approvalProgram: string, clearProgram: string, globalSchema: { numByteSlice: number, numUint: number }, localSchema: { numByteSlice: number, numUint: number } }): Promise<{ txnId:string, applicationId: number, error : string }> {
     //    const globalSchema = body.globalSchema
     //    const localSchema = body.localSchema
        

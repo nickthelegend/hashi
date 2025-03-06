@@ -40,20 +40,25 @@ export class AlgoTxCrafter extends AlgorandTransactionCrafter {
 	createApplication(from: string, approvalProgram: Uint8Array, clearProgram: Uint8Array, globalSchema: { numByteSlice: number, numUint: number }, localSchema: { numByteSlice: number, numUint: number }, firstRound:bigint, lastRound:bigint): any {
 		return new ApplicationTxBuilder(this.genesisIdCrafter, this.genesisHashCrafter)
 		.addSender(from)
-		.addFee(1000)
+		// .addFee(BigInt(1000))
 		.addApprovalProgram(approvalProgram)
 		.addClearProgram(clearProgram)
 		.addGlobalSchema(globalSchema.numByteSlice, globalSchema.numUint)
 		.addLocalSchema(localSchema.numByteSlice, localSchema.numUint)
 		.addFirstValidRound(firstRound)
 		.addLastValidRound(lastRound)
-		.addApplicationId(0)
+		// .addApplicationId(BigInt(0))
 		.addOnCompleteOption(0)
-        .addApplicationArgs([])  // Empty array as default
-        .addAccounts([])         // Empty array as default
-        .addForeignAssets([])    // Empty array as default
-        .addForeignApps([])      // Empty array as default
-        .addBoxes([])            // Empty array as default
+        // .addApplicationArgs([])  // Empty array as default
+        // .addAccounts([])         // Empty array as default
+        // .addForeignAssets([])    // Empty array as default
+        // .addForeignApps([])      // Empty array as default
+        // .addBoxes([])            // Empty array as default
+		// .addExtraProgram(0)
+		// // .addLease(new Uint8Array())
+		// .addRekey(new Uint8Array())
+		// .addGroup(new Uint8Array())
+		// .addNote(new Uint8Array([]))
 	}
 }
 

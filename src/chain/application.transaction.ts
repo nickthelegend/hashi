@@ -1,9 +1,11 @@
 import { AlgorandEncoder } from "@algorandfoundation/algo-models";
+import * as msgpack from "algo-msgpack-with-bigint"
+import { Encoder } from "./encoder.role";
 
 export class ApplicationCall {
     type: string
     snd: Uint8Array
-    fee: number
+    fee: bigint
     fv: bigint
     lv: bigint
     gen: string
@@ -18,7 +20,7 @@ export class ApplicationCall {
         nbs: number
         nui: number 
     }; // Local schema
-    apid?: number // Application id
+    apid?: bigint // Application id
     apaa?: Uint8Array[] // Application arguments
     apat?: Uint8Array[] // Accounts
     apfa?: number[] // Foreign assets
@@ -28,30 +30,47 @@ export class ApplicationCall {
         n: string 
     }[] // Boxes
     apan?: number // #onComplete
-
+    apep?: number // Extra program
+    note?: Uint8Array // Note
+    lx?: Uint8Array // Lease
+    rekey?: Uint8Array // Rekey
+    grp?: Uint8Array // Group
+    
     // encode the transaction
     encode(): Uint8Array {
-        const encoded: Uint8Array = new AlgorandEncoder().encodeTransaction(this);
-        return encoded;
+        const encoded: Uint8Array = msgpack.encode(this, { sortKeys: true, ignoreUndefined: true })
+
+		// tag
+		const TAG: Buffer = Buffer.from("TX")
+
+		// concat tag + encoded
+		const encodedTx: Uint8Array = Encoder.ConcatArrays(TAG, encoded)
+
+		return encodedTx
     }
 }
 
 export interface IApplicationNoOpTxBuilder {
     addSender(sender: string): IApplicationNoOpTxBuilder;
-    addFee(fee: number): IApplicationNoOpTxBuilder;
+    addFee(fee: bigint): IApplicationNoOpTxBuilder;
     addFirstValidRound(firstValid: bigint): IApplicationNoOpTxBuilder;
     addLastValidRound(lastValid: bigint): IApplicationNoOpTxBuilder;
     addApprovalProgram(apap: Uint8Array): IApplicationNoOpTxBuilder;
     addClearProgram(apsu: Uint8Array): IApplicationNoOpTxBuilder;
     addGlobalSchema(nbs: number, nui: number): IApplicationNoOpTxBuilder;
     addLocalSchema(nbs: number, nui: number): IApplicationNoOpTxBuilder;
-    addApplicationId(appId: number): IApplicationNoOpTxBuilder;
+    addApplicationId(appId: bigint): IApplicationNoOpTxBuilder;
     addApplicationArgs(args: Uint8Array[]): IApplicationNoOpTxBuilder;
     addAccounts(accounts: string[]): IApplicationNoOpTxBuilder;
     addForeignAssets(assets: number[]): IApplicationNoOpTxBuilder;
     addForeignApps(apps: number[]): IApplicationNoOpTxBuilder;
     addBoxes(boxes: { i: number; n: string }[]): IApplicationNoOpTxBuilder;
     addOnCompleteOption(version: number): IApplicationNoOpTxBuilder;
+    addExtraProgram(extraProgram: number): IApplicationNoOpTxBuilder;
+    addLease(lease: Uint8Array): IApplicationNoOpTxBuilder;
+    addRekey(rekey: Uint8Array): IApplicationNoOpTxBuilder;
+    addGroup(group: Uint8Array): IApplicationNoOpTxBuilder; 
+    addNote(note: Uint8Array): IApplicationNoOpTxBuilder;
 
     get(): ApplicationCall;
 }
@@ -64,7 +83,7 @@ export class ApplicationTxBuilder implements IApplicationNoOpTxBuilder {
         this.tx.gh = new Uint8Array(Buffer.from(genesisHash, "base64"));
         this.tx.gen = genesisId;
         this.tx.type = "appl";
-        this.tx.fee = 1000;
+        this.tx.fee = BigInt(1000);
     }
 
     addSender(sender: string): IApplicationNoOpTxBuilder {
@@ -72,7 +91,7 @@ export class ApplicationTxBuilder implements IApplicationNoOpTxBuilder {
         return this;
     }
 
-    addFee(fee: number): IApplicationNoOpTxBuilder {
+    addFee(fee: bigint): IApplicationNoOpTxBuilder {
         this.tx.fee = fee;
         return this;
     }
@@ -107,7 +126,7 @@ export class ApplicationTxBuilder implements IApplicationNoOpTxBuilder {
         return this;
     }
 
-    addApplicationId(appId: number): IApplicationNoOpTxBuilder {
+    addApplicationId(appId: bigint): IApplicationNoOpTxBuilder {
         this.tx.apid = appId;
         return this;
     }
@@ -139,6 +158,28 @@ export class ApplicationTxBuilder implements IApplicationNoOpTxBuilder {
 
     addOnCompleteOption(version: number): IApplicationNoOpTxBuilder {
         this.tx.apan = version;
+        return this;
+    }
+
+    addExtraProgram(extraProgram: number): IApplicationNoOpTxBuilder {
+        this.tx.apep = extraProgram;
+        return this;
+    }
+
+    addLease(lease: Uint8Array): IApplicationNoOpTxBuilder {
+        this.tx.lx = lease;
+        return this;
+    }
+    addRekey(rekey: Uint8Array): IApplicationNoOpTxBuilder {
+        this.tx.rekey = rekey;
+        return this;
+    }
+    addGroup(group: Uint8Array): IApplicationNoOpTxBuilder{
+        this.tx.grp = group;
+        return this;
+    } 
+    addNote(note : Uint8Array): IApplicationNoOpTxBuilder{
+        this.tx.note = note;
         return this;
     }
 

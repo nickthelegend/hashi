@@ -280,14 +280,22 @@ export class TransactionService implements OnModuleInit {
         return txtId;
     }
 
-    
+       /**
+        * 
+        * @param from - Hashi vault key name
+        * @param approvalProgram 
+        * @param clearProgram 
+        * @param globalSchema 
+        * @param localSchema 
+        * @returns 
+        */   
 
     async createApplication ( 
         from: string, 
         approvalProgram: string, 
         clearProgram: string, 
         globalSchema: { numByteSlice: number, numUint: number }, localSchema: { numByteSlice: number, numUint: number } 
-    ): Promise<string> {
+    ): Promise<{ txnId:string, applicationId: number, error : string }> {
         if (!from || !approvalProgram || !clearProgram || !globalSchema || !localSchema) {
             throw new Error('Invalid application creation parameters');
         }
@@ -298,44 +306,40 @@ export class TransactionService implements OnModuleInit {
         const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
 
         const algodClient = new algosdk.Algodv2("", "https://testnet-api.algonode.cloud", "");
-        const suggestedParams = await algodClient.getTransactionParams().do();
+        const suggestedParams = await algodClient.getTransactionParams().do();this.algorand("testnet")
         
-        const encoded = crafter.createApplication(fromAddr, 
-            algosdk.base64ToBytes(approvalProgram), 
-            algosdk.base64ToBytes(clearProgram), 
-            globalSchema, 
-            localSchema, 
-            suggestedParams.firstValid, 
-            suggestedParams.lastValid)
-            .get().encode();
+        // const encoded = crafter.createApplication(fromAddr, 
+        //     algosdk.base64ToBytes(approvalProgram), 
+        //     algosdk.base64ToBytes(clearProgram), 
+        //     globalSchema, 
+        //     localSchema, 
+        //     suggestedParams.firstValid, 
+        //     suggestedParams.lastValid)
+        //     .get().encode();
 
-            console.log(encoded);
+        //     console.log(encoded);
             
 
-        // const appCreateTxn = algosdk.makeApplicationCreateTxnFromObject({
-        //     sender: fromAddr,
-        //     approvalProgram: algosdk.base64ToBytes(approvalProgram),
-        //     clearProgram: algosdk.base64ToBytes(clearProgram), 
-        //     numGlobalByteSlices: globalSchema.numByteSlice,
-        //     numGlobalInts: globalSchema.numUint,
-        //     numLocalByteSlices: localSchema.numByteSlice,
-        //     numLocalInts: localSchema.numUint,
-        //     suggestedParams,
-        //     onComplete: algosdk.OnApplicationComplete.NoOpOC,
-        //   }).toEncodingData();
+        const encoded = algosdk.makeApplicationCreateTxnFromObject({
+            sender: fromAddr,
+            approvalProgram: algosdk.base64ToBytes(approvalProgram),
+            clearProgram: algosdk.base64ToBytes(clearProgram), 
+            numGlobalByteSlices: globalSchema.numByteSlice,
+            numGlobalInts: globalSchema.numUint,
+            numLocalByteSlices: localSchema.numByteSlice,
+            numLocalInts: localSchema.numUint,
+            suggestedParams,
+            onComplete: algosdk.OnApplicationComplete.NoOpOC,
+          }).bytesToSign();
 
-        //   console.log(appCreateTxn);
+        //   console.log(encoded);
           
-        //   const encoded = new AlgorandEncoder().encodeTransaction(appCreateTxn)
-            
-
-        //   console.log( new Uint8Array(appCreateTxn.bytesToSign()) );
-          
-
-        // const encoded = new Uint8Array(appCreateTxn.bytesToSign())
+        
 
         const txnId = await this.signAndSubmitTransaction(encoded, from) // 'Test';//
 
-        return txnId;
+        const transaction = await this.waitForTransaction(txnId, 10, 2000, this.algorand("testnet"))     
+
+        return  { txnId, applicationId:transaction.transaction.createdApplicationIndex, error: null};
     }
 }
