@@ -85,7 +85,7 @@ export class TransactionService implements OnModuleInit {
      * @param amt 
      * @returns 
      */
-    async makePayment(from:string, to:string, amt:number): Promise<{ txnId: string, error: string }> {
+    async makePayment(from:string, to:string, amt:number): Promise<{ txnId: string, error: string}> {
         
         if (!from || !to || amt === undefined || amt === null) {
             throw new Error('Invalid payment parameters');
@@ -109,7 +109,7 @@ export class TransactionService implements OnModuleInit {
             return { txnId, error : null }
 
         } catch (error) {
-            return { txnId: null, error: error.response.data.message}; 
+            throw new Error(error.response.data.message);
         }
     }
 
@@ -171,9 +171,10 @@ export class TransactionService implements OnModuleInit {
             return { assetId: assetId.toString(), txnId, error: null};
 
         } catch (error) {
-            console.log(error);
-            
-            return { assetId:null, txnId: null, error: error.response.data.message};  
+            console.error('Asset creation error:', error);
+            // Safely extract error message without assuming response structure
+            const errorMessage = error.response?.data?.message || error.message || 'Unknown error creating asset';
+            throw new Error(errorMessage);
         }
        
     }
@@ -241,8 +242,10 @@ export class TransactionService implements OnModuleInit {
             return  { txnId, error: null};
 
         } catch (error) {
-            return { txnId: null, error: error.response.data.message};
-                // console.log(error);
+            console.error('Token transfer error:', error);
+            // Safely extract error message without assuming response structure
+            const errorMessage = error.response?.data?.message || error.message || 'Unknown error transferring token';
+            throw new Error(errorMessage);
         }
     }
 
@@ -294,6 +297,7 @@ export class TransactionService implements OnModuleInit {
         from: string, 
         approvalProgram: string, 
         clearProgram: string, 
+        appArgs: Array<Uint8Array>,
         globalSchema: { numByteSlice: number, numUint: number }, localSchema: { numByteSlice: number, numUint: number } 
     ): Promise<{ txnId:string, applicationId: number, error : string }> {
         if (!from || !approvalProgram || !clearProgram || !globalSchema || !localSchema) {
@@ -307,39 +311,128 @@ export class TransactionService implements OnModuleInit {
 
         const algodClient = new algosdk.Algodv2("", "https://testnet-api.algonode.cloud", "");
         const suggestedParams = await algodClient.getTransactionParams().do();this.algorand("testnet")
-        
-        // const encoded = crafter.createApplication(fromAddr, 
-        //     algosdk.base64ToBytes(approvalProgram), 
-        //     algosdk.base64ToBytes(clearProgram), 
-        //     globalSchema, 
-        //     localSchema, 
-        //     suggestedParams.firstValid, 
-        //     suggestedParams.lastValid)
-        //     .get().encode();
-
-        //     console.log(encoded);
+        try {
             
+            const encoded = crafter.createApplication(fromAddr, 
+                algosdk.base64ToBytes(approvalProgram), 
+                algosdk.base64ToBytes(clearProgram), 
+                appArgs,
+                globalSchema, 
+                localSchema, 
+                suggestedParams.firstValid, 
+                suggestedParams.lastValid)
+                .get().encode();
 
-        const encoded = algosdk.makeApplicationCreateTxnFromObject({
-            sender: fromAddr,
-            approvalProgram: algosdk.base64ToBytes(approvalProgram),
-            clearProgram: algosdk.base64ToBytes(clearProgram), 
-            numGlobalByteSlices: globalSchema.numByteSlice,
-            numGlobalInts: globalSchema.numUint,
-            numLocalByteSlices: localSchema.numByteSlice,
-            numLocalInts: localSchema.numUint,
-            suggestedParams,
-            onComplete: algosdk.OnApplicationComplete.NoOpOC,
-          }).bytesToSign();
+            //     console.log(encoded);
+                
 
-        //   console.log(encoded);
-          
-        
+            const txnId = await this.signAndSubmitTransaction(encoded, from) // 'Test';//
 
-        const txnId = await this.signAndSubmitTransaction(encoded, from) // 'Test';//
+            const transaction = await this.waitForTransaction(txnId, 10, 2000, this.algorand("testnet"))     
 
-        const transaction = await this.waitForTransaction(txnId, 10, 2000, this.algorand("testnet"))     
-
-        return  { txnId, applicationId:transaction.transaction.createdApplicationIndex, error: null};
+            return  { txnId, applicationId:transaction.transaction.createdApplicationIndex, error: null};
+        } catch (error) {
+            console.error('Application creation error:', error);
+            // Safely extract error message without assuming response structure
+            const errorMessage = error.response?.data?.message || error.message || 'Unknown error creating application';
+            throw new Error(errorMessage);
+        }
     }
+
+    async callApplicationABIMethod(from: string, appIndex: bigint, appArgs: any,  foreignApps: Array<number>, foreignAssets: Array<number>): Promise<{ txnId:string, error : string }> {
+        if (!from || appIndex === undefined || appIndex === null) {
+            throw new Error('Invalid application call parameters');
+        }   
+
+        const publicKey: Buffer = await this.walletService.getPublicKey(from)
+        const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
+       try {
+            const algodClient = new algosdk.Algodv2("", "https://testnet-api.algonode.cloud", "");
+            const suggestedParams = await algodClient.getTransactionParams().do();
+            
+            const crafter = CrafterFactory.getCrafter("algorand", this.configService)
+            
+            
+            const encoded = crafter.callApplicationMethod(fromAddr, appIndex, appArgs, foreignApps, foreignAssets, suggestedParams.firstValid, suggestedParams.lastValid).get().encode();
+            // const encoded = crafter.callApplicationMethod(fromAddr, appIndex, new Uint8Array(appArgs), foreignApps, foreignAssets, suggestedParams.firstValid, suggestedParams.lastValid).get().encode();
+
+            // const encoded = algosdk.makeApplicationNoOpTxnFromObject({
+            //     sender: fromAddr,
+            //     appIndex: appIndex,
+            //     appArgs: appArgs,
+            //     accounts: [],
+            //     foreignApps: foreignApps,
+            //     foreignAssets: foreignAssets,
+            //     boxes: [],
+            //     suggestedParams: suggestedParams
+            // }).toEncodingData();
+
+            // console.log(encoded);
+            
+            const txnId = await this.signAndSubmitTransaction(encoded, from);
+
+            // const transaction = await this.waitForTransaction(txnId, 10, 2000, this.algorand("testnet"))
+
+            // const result = await algodClient.getApplicationBoxById(appId, method).do();
+
+            return { txnId, error: null};
+        } catch (error) {
+            console.error('Application method call error:', error);
+            // Safely extract error message without assuming response structure
+            const errorMessage = error.response?.data?.message || error.message || 'Unknown error calling application method';
+            throw new Error(errorMessage);
+        }
+    }
+
+    async applicationCall(
+        from: string, 
+        appIndex: number, 
+        approvalProgram?: string, 
+        clearProgram?: string, 
+        globalSchema?: { numByteSlice: number, numUint: number }, 
+        localSchema?: { numByteSlice: number, numUint: number }, 
+        appArgs?: Array<Uint8Array>, 
+        foreignApps?: Array<number>, 
+        foreignAssets?: Array<number>): Promise<{ txnId: string, applicationId: number, error: string }> {  
+            try {
+                const publicKey: Buffer = await this.walletService.getPublicKey(from)
+                const fromAddr = EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
+
+                const suggestedParams = await this.getSuggestedParams();
+
+                const crafter = CrafterFactory.getCrafter("algorand", this.configService)
+                
+                // Convert parameters to the correct types
+                const approvalProgramBytes = approvalProgram ? algosdk.base64ToBytes(approvalProgram) : new Uint8Array(0);
+                const clearProgramBytes = clearProgram ? algosdk.base64ToBytes(clearProgram) : new Uint8Array(0);
+                
+                const applicationBuilder = crafter.applicationCall(
+                    fromAddr, 
+                    approvalProgramBytes, 
+                    clearProgramBytes,
+                    appArgs, 
+                    globalSchema, 
+                    localSchema, 
+                    suggestedParams.firstValid, 
+                    suggestedParams.lastValid,
+                    foreignApps, 
+                    foreignAssets,
+                    BigInt(appIndex))
+
+                const encoded = applicationBuilder.get().encode();
+
+                const txnId = await this.signAndSubmitTransaction(encoded, from);
+
+                const transaction = await this.waitForTransaction(txnId, 10, 2000, this.algorand("testnet"))     
+
+                return { txnId, applicationId: transaction.transaction.createdApplicationIndex ?? appIndex, error: null };
+            } catch (error) {
+                console.error('Error in applicationCall:', error);
+                // Safely extract error message without assuming response structure
+                const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
+                return { txnId: '', applicationId: appIndex, error: errorMessage };
+            }
+        
+    }
+
 }

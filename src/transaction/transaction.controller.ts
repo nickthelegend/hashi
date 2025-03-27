@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Logger, Param, Post } from "@nestjs/common"
+import { Body, Controller, Get, Logger, Param, Post, Res } from "@nestjs/common"
 import { WalletService } from "../wallet/wallet.service"
 import { IsString, IsNumber, IsOptional, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -9,6 +9,8 @@ import { CrafterFactory } from "../chain/crafter.factory"
 import { ApiTags } from "@nestjs/swagger"
 import { TransactionService } from "./transaction.service"
 import algosdk from "algosdk";
+import {sha512_256} from "js-sha512";
+
 
 // DTO for required parameters
 export class CreateAssetRequiredDto {
@@ -115,7 +117,7 @@ export class Transaction {
         
 
         return await this.txnService.asset(body.from, body.unit, decimals, totalTokens, params)
-
+        
         // const assetId = await this.txnService.asset('test', 'kavya', 0, 1, { assetName: 'test', url: 'http://test.com', defaultFrozen: false, 
         //     managerAddress: 'C6A7MF2QX27SARKX32PUH2WWTUMFTH3UUBQ4DU4KBNXB4N2DTENO6HVF3M', 
         //     reserveAddress: 'C6A7MF2QX27SARKX32PUH2WWTUMFTH3UUBQ4DU4KBNXB4N2DTENO6HVF3M', 
@@ -144,18 +146,61 @@ export class Transaction {
         // return { txnId : await this.txnService.optInAsset(734469357, 'test1')}
     }
 
-   @Post("create-application")
-   async createApplication(@Body() body: { from: string, approvalProgram: string, clearProgram: string, globalSchema: { numByteSlice: number, numUint: number }, localSchema: { numByteSlice: number, numUint: number } }): Promise<{ txnId:string, applicationId: number, error : string }> {
-    //    const globalSchema = body.globalSchema
-    //    const localSchema = body.localSchema
-       
-       
-    //    return await this.txnService.createApplication(body.from, body.approvalProgram, body.clearProgram, globalSchema, localSchema)
-       return await this.txnService.createApplication('test', 
-        'CjEbQQA0gAQCvs4RNhoAjgEAA4EAQzEZFEQxGEQ2GgFXAgCIACBJFRZXBgJMUIAEFR98dUxQsIEBQzEZQP/UMRgURIEBQ4oBAYAHSGVsbG8sIIv/UIk=',
-        'CoEBQw==', 
-        { numByteSlice: 0, numUint: 0 }, { numByteSlice: 0, numUint: 0 });
+   
+
+
+   @Post('application-call')
+   async applicationCall(@Body() body: { from: string, 
+    approvalProgram?: string, 
+    clearProgram?: string, 
+    globalSchema?: { numByteSlice: number, numUint: number }, 
+    localSchema?: { numByteSlice: number, numUint: number } , 
+    appIndex?: number, 
+    appArgs?: Array<Uint8Array>, 
+    foreignApps?: Array<number>, 
+    foreignAssets?: Array<number> }
+    ): Promise<{ txnId: string, error: string }> {
+
+
+
+        // Participation Token Application Call
+        // return await this.txnService.applicationCall('test', 0,
+        //     'CiADAAEEJgEIYXNzZXRfaWSABG6nG1OABBV0U1qABCIZu6eABPFXdyaABDOzSZ42GgCOBQABABYALAA4AEQAMRkURDEYFEQ2GgEXNhoCF4gAPiNDMRkURDEYRDEWIwlJOBAjEkSIAD0jQzEZFEQxGESIAGQjQzEZFEQxGESIAH0jQzEZgQUSRDEYRIgAiCNDigIAKIv+Z4AIcXVhbnRpdHmL/2eJigEAMQAyCRJEMgoiKGVEcABFARREi/84BzIKEkSxIihlRDIKIrISshSyESSyECKyAbOJigAAMQAiKGVEcABFARREsSIoZUQxACKyErIUshEkshAisgGziYoAALEiKGVEMQAjshKyFLIRJLIQIrIBs4mKAAAxADIJEkSxIihlRDIJSbIVIrISshSyESSyECKyAbOxMglJsgkisgiyByOyECKyAbOJ',
+        //     'CoEBQw==', 
+        //     { numByteSlice: 0, numUint: 2 }, { numByteSlice: 0, numUint: 0 },
+        //     [new Uint8Array(sha512_256.array(Buffer.from("create_application(uint64,uint64)void")).slice(0, 4)), algosdk.encodeUint64(735261053), algosdk.encodeUint64(1) ], 
+        //     [], []
+        //     );
+
+        var {txnId, error} = await this.txnService.makePayment('test', '5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI', 101000)
+
+        const transaction = await this.txnService.waitForTransaction(txnId, 10, 2000, this.txnService.algorand("testnet"))
+
+        console.log(transaction);
+        
+
+        return await this.txnService.applicationCall('test', 736444345,
+            null,
+            null, 
+            null, null,
+            [new Uint8Array(sha512_256.array(Buffer.from("opt_in_to_asset(pay)void")).slice(0, 4))], 
+            [], []
+            );
+
+
+
+        return await this.txnService.applicationCall(
+            body.from, 
+            body.appIndex??0, 
+            body.approvalProgram??'', 
+            body.clearProgram??'', 
+            body.globalSchema??{ numByteSlice: 0, numUint: 0 }, 
+            body.localSchema??{ numByteSlice: 0, numUint: 0 }, 
+            body.appArgs??[], 
+            body.foreignApps??[], 
+            body.foreignAssets??[]
+        )
+
+
    }
-
-
 }
