@@ -71,24 +71,24 @@ export class AlgoTxCrafter extends AlgorandTransactionCrafter {
 
 		// Check and add global schema if provided and valid
 		if(globalSchema && typeof globalSchema === 'object') {
-			if(globalSchema.numByteSlice > 0) {
-				applicationBuilder.addGlobalSchemaByteSlice(globalSchema.numByteSlice)
-			}
+		if(globalSchema.numByteSlice > 0) {
+			applicationBuilder.addGlobalSchemaByteSlice(globalSchema.numByteSlice)
+		}
 
-			if(globalSchema.numUint > 0) {
-				applicationBuilder.addGlobalSchemaUint(globalSchema.numUint)
-			}
+		if(globalSchema.numUint > 0) {
+			applicationBuilder.addGlobalSchemaUint(globalSchema.numUint)
+		}
 		}
 
 		// Check and add local schema if provided and valid
 		if(localSchema && typeof localSchema === 'object') {
-			if(localSchema.numByteSlice > 0) {
-				applicationBuilder.addLocalSchemaByteSlice(localSchema.numByteSlice)
-			}
+		if(localSchema.numByteSlice > 0) {
+			applicationBuilder.addLocalSchemaByteSlice(localSchema.numByteSlice)
+		}
 
-			if(localSchema.numUint > 0) {
-				applicationBuilder.addLocalSchemaUint(localSchema.numUint)
-			}
+		if(localSchema.numUint > 0) {
+			applicationBuilder.addLocalSchemaUint(localSchema.numUint)
+		}
 		}
 
 		// Check and add foreign apps if provided and valid

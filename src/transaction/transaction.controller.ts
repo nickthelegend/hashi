@@ -172,7 +172,7 @@ export class Transaction {
         //     [], []
         //     );
 
-        var {txnId, error} = await this.txnService.makePayment('test', '5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI', 101000)
+        var {txnId, error} = await this.txnService.makePayment('test', '5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI', 202000)
 
         const transaction = await this.txnService.waitForTransaction(txnId, 10, 2000, this.txnService.algorand("testnet"))
 
