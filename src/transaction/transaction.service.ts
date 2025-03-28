@@ -249,6 +249,37 @@ export class TransactionService implements OnModuleInit {
         }
     }
 
+    async optOutAsset(assetId: number, from: string, close: string): Promise<{ txnId:string, error : string }> {
+        if (!from || assetId === undefined || assetId === null) {
+            throw new Error('Invalid asset opt-out parameters');
+        }       
+
+        try {
+            
+            const publicKey: Buffer = await this.walletService.getPublicKey(from)
+            const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
+
+            const suggestedParams = await this.getSuggestedParams();
+
+            const crafter = CrafterFactory.getCrafter("algorand", this.configService)
+
+            const encoded = crafter.assetTransfer(assetId, fromAddr, fromAddr, 0)
+                                    .addFirstValidRound(Number(suggestedParams.firstValid))
+                                    .addLastValidRound(Number(suggestedParams.lastValid))
+                                    .addClose(close)
+                                    .get().encode()
+
+            const txnId = await this.signAndSubmitTransaction(encoded, from)
+            
+            return  { txnId, error: null};
+        } catch (error) {
+            console.error('Token transfer error:', error);
+            // Safely extract error message without assuming response structure
+            const errorMessage = error.response?.data?.message || error.message || 'Unknown error transferring token';
+            throw new Error(errorMessage);
+        }
+    }
+
     algorand(net : string): AlgorandClient {
         return AlgorandClient.testNet()
     }
@@ -393,7 +424,8 @@ export class TransactionService implements OnModuleInit {
         localSchema?: { numByteSlice: number, numUint: number }, 
         appArgs?: Array<Uint8Array>, 
         foreignApps?: Array<number>, 
-        foreignAssets?: Array<number>): Promise<{ txnId: string, applicationId: number, error: string }> {  
+        foreignAssets?: Array<number>,
+        accounts?: Array<string>): Promise<{ txnId: string, applicationId: number, error: string }> {  
             try {
                 const publicKey: Buffer = await this.walletService.getPublicKey(from)
                 const fromAddr = EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
@@ -417,7 +449,8 @@ export class TransactionService implements OnModuleInit {
                     suggestedParams.lastValid,
                     foreignApps, 
                     foreignAssets,
-                    BigInt(appIndex))
+                    BigInt(appIndex),
+                    accounts)
 
                 const encoded = applicationBuilder.get().encode();
 
@@ -427,7 +460,7 @@ export class TransactionService implements OnModuleInit {
 
                 return { txnId, applicationId: transaction.transaction.createdApplicationIndex ?? appIndex, error: null };
             } catch (error) {
-                console.error('Error in applicationCall:', error);
+                console.error('Error in applicationCall:', error);  
                 // Safely extract error message without assuming response structure
                 const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
                 return { txnId: '', applicationId: appIndex, error: errorMessage };

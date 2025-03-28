@@ -146,6 +146,13 @@ export class Transaction {
         // return { txnId : await this.txnService.optInAsset(734469357, 'test1')}
     }
 
+    @Post("opt-out-asset")
+    async optOutAsset(@Body() body: { assetId: number, from: string, close: string }): Promise<{ txnId: string }> {
+        const assetId = Number(body.assetId)    
+    
+        return await this.txnService.optOutAsset(assetId, body.from, body.close)
+    }
+
    
 
 
@@ -158,7 +165,9 @@ export class Transaction {
     appIndex?: number, 
     appArgs?: Array<Uint8Array>, 
     foreignApps?: Array<number>, 
-    foreignAssets?: Array<number> }
+    foreignAssets?: Array<number>,
+    accounts?: Array<string>
+    }
     ): Promise<{ txnId: string, error: string }> {
 
 
@@ -174,17 +183,14 @@ export class Transaction {
 
         var {txnId, error} = await this.txnService.makePayment('test', '5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI', 202000)
 
-        const transaction = await this.txnService.waitForTransaction(txnId, 10, 2000, this.txnService.algorand("testnet"))
-
-        console.log(transaction);
-        
 
         return await this.txnService.applicationCall('test', 736444345,
             null,
             null, 
             null, null,
-            [new Uint8Array(sha512_256.array(Buffer.from("opt_in_to_asset(pay)void")).slice(0, 4))], 
-            [], []
+            [new Uint8Array(sha512_256.array(Buffer.from("opt_in_to_asset(pay)void")).slice(0, 4)), Buffer.from("EJVPKD4RQELEMZ7D4W756LORLPBH6OBN773URZXAS22WPRLZW6OQ")], 
+            [], [735261053],
+            ['SEHSPKLFLP55PHXKKZPXAZ5DFE7DDBH3BHPVTRRKIEYCBJOJWTE4V42HLI']
             );
 
 
@@ -198,7 +204,8 @@ export class Transaction {
             body.localSchema??{ numByteSlice: 0, numUint: 0 }, 
             body.appArgs??[], 
             body.foreignApps??[], 
-            body.foreignAssets??[]
+            body.foreignAssets??[],
+            body.accounts??[]
         )
 
 
