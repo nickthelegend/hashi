@@ -12,7 +12,7 @@ export class AssetTransfer {
 	gen: string
 	gh: Uint8Array
 	aclose: Uint8Array
-
+	grp: Uint8Array
 
 	// encode the transaction
 	// return the encoded transaction

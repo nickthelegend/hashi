@@ -10,6 +10,8 @@ import { AlgoTxCrafter, CrafterFactory } from "src/chain/crafter.factory"
 // import { AssetConfigTxBuilder, IAssetConfigTxBuilder } from "src/chain/algorand.transaction.acfg"
 import algosdk from "algosdk"
 import { AlgorandClient, Config } from '@algorandfoundation/algokit-utils'
+import { encode } from "punycode"
+import { type } from "os"
 
 interface Assetparams {
     assetName?: string;
@@ -77,6 +79,18 @@ export class TransactionService implements OnModuleInit {
 		// return as Uint8Array
 		return new Uint8Array(decoded)
 	}
+    
+
+    async makePaymentTxn(from: string, to: string, amt: number) {
+        const fromAddr = await this.get_public_key({ from });
+
+        const suggestedParams = await this.getSuggestedParams();
+    
+        return this.txnCrafter.pay(amt, fromAddr, to)
+                                        .addFirstValidRound(Number(suggestedParams.firstValid))
+                                        .addLastValidRound(Number(suggestedParams.lastValid))
+                                        .get()
+    }
 
     /**
      * 
@@ -92,17 +106,7 @@ export class TransactionService implements OnModuleInit {
         }
 
         try {
-            
-            const publicKey: Buffer = await this.walletService.getPublicKey(from)
-            const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
-
-            const suggestedParams = await this.getSuggestedParams();
-        
-            const encoded = this.txnCrafter.pay(amt, fromAddr, to)
-                                            .addFirstValidRound(Number(suggestedParams.firstValid))
-                                            .addLastValidRound(Number(suggestedParams.lastValid))
-                                            .get().encode();
-                                                         
+            const encoded = (await this.makePaymentTxn(from, to, amt)).encode();
 
             const txnId = await this.signAndSubmitTransaction(encoded, from);
             
@@ -111,6 +115,40 @@ export class TransactionService implements OnModuleInit {
         } catch (error) {
             throw new Error(error.response.data.message);
         }
+    }
+
+
+    async assetCreationTxn(params:Assetparams, from: string, unit: string, decimals: number, totalTokens: number) { 
+        const fromAddr = await this.get_public_key({ from });
+
+        const suggestedParams = await this.getSuggestedParams();
+
+        const crafter = CrafterFactory.getCrafter("algorand", this.configService)
+
+        const assetCreateTxBuilder = crafter.asset(fromAddr, unit, decimals, totalTokens, Number(suggestedParams.firstValid), Number(suggestedParams.lastValid), params.defaultFrozen)
+
+        // Add optional parameters if they exist
+        if (params.assetName) {
+            assetCreateTxBuilder.addName(params.assetName);
+        }
+        if (params.url) {
+            assetCreateTxBuilder.addUrl(params.url);
+        }
+        
+        if (params.managerAddress) {
+            assetCreateTxBuilder.addManagerAddress(params.managerAddress);
+        }
+        if (params.reserveAddress) {
+            assetCreateTxBuilder.addReserveAddress(params.reserveAddress);
+        }
+        if (params.freezeAddress) {
+            assetCreateTxBuilder.addFreezeAddress(params.freezeAddress);
+        }
+        if (params.clawbackAddress) {
+            assetCreateTxBuilder.addClawbackAddress(params.clawbackAddress);
+        }
+        
+        return assetCreateTxBuilder.get()
     }
 
     /**
@@ -128,37 +166,7 @@ export class TransactionService implements OnModuleInit {
         }
  
         try {
-            const publicKey: Buffer = await this.walletService.getPublicKey(from)
-            const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
-
-            const suggestedParams = await this.getSuggestedParams();
-
-            const crafter = CrafterFactory.getCrafter("algorand", this.configService)
-
-            const assetCreateTxBuilder = crafter.asset(fromAddr, unit, decimals, totalTokens, Number(suggestedParams.firstValid), Number(suggestedParams.lastValid), params.defaultFrozen)
-
-            // Add optional parameters if they exist
-            if (params.assetName) {
-                assetCreateTxBuilder.addName(params.assetName);
-            }
-            if (params.url) {
-                assetCreateTxBuilder.addUrl(params.url);
-            }
-            
-            if (params.managerAddress) {
-                assetCreateTxBuilder.addManagerAddress(params.managerAddress);
-            }
-            if (params.reserveAddress) {
-                assetCreateTxBuilder.addReserveAddress(params.reserveAddress);
-            }
-            if (params.freezeAddress) {
-                assetCreateTxBuilder.addFreezeAddress(params.freezeAddress);
-            }
-            if (params.clawbackAddress) {
-                assetCreateTxBuilder.addClawbackAddress(params.clawbackAddress);
-            }
-            
-            const encoded =  assetCreateTxBuilder.get().encode(); 
+            const encoded = (await this.assetCreationTxn(params, from, unit, decimals, totalTokens)).encode(); 
 
             const txnId = await this.signAndSubmitTransaction(encoded, from);
 
@@ -179,6 +187,19 @@ export class TransactionService implements OnModuleInit {
        
     }
 
+
+    async transferTokenTxn(params: { from: string, to: string, amount: number, assetId: number }) {  
+        const fromAddr = await this.get_public_key({ from: params.from }); 
+
+        const suggestedParams = await this.getSuggestedParams();
+
+        return this.txnCrafter.transferAsset(fromAddr, params.assetId, params.to, params.amount)
+                                        .addFirstValidRound(Number(suggestedParams.firstValid))
+                                        .addLastValidRound(Number(suggestedParams.lastValid))
+                                        .get()
+    }
+
+
     /**
      * 
      * @param assetId 
@@ -193,61 +214,63 @@ export class TransactionService implements OnModuleInit {
         }
 
         try {            
-            const publicKey: Buffer = await this.walletService.getPublicKey(from)
-            const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
-
-            const suggestedParams = await this.getSuggestedParams();
-
-            const encoded = this.txnCrafter.transferAsset(fromAddr, assetId,  to, amount)
-                                            .addFirstValidRound(Number(suggestedParams.firstValid))
-                                            .addLastValidRound(Number(suggestedParams.lastValid))
-                                            .get().encode();
+            const encoded = (await this.transferTokenTxn({ from, to, amount, assetId })).encode();
 
             const txnId = await this.signAndSubmitTransaction(encoded, from);
 
             return { txnId, error: null};
 
         } catch (error) {
-            return { txnId: null, error: error.response.data.message};
+            return { txnId: null, error: error.response?.data?.message || error.message || 'Unknown error transferring token'};
         }
     }
 
-    /**
-     * 
-     * @param assetId 
-     * @param from - Hashi vault key name
-     * @returns 
-     */
+    async optInAssetTxn(params: { from: string, assetId: number }) {
+        const fromAddr = await this.get_public_key({ from: params.from });
+
+        const suggestedParams = await this.getSuggestedParams();
+
+        const crafter = CrafterFactory.getCrafter("algorand", this.configService);
+        
+        return crafter.assetTransfer(params.assetId, fromAddr, fromAddr, 0)
+                                .addFirstValidRound(Number(suggestedParams.firstValid))
+                                .addLastValidRound(Number(suggestedParams.lastValid))
+                                .get()
+    }
+
     async optInAsset(assetId: number, from: string): Promise<{ txnId:string, error : string }> {
         if (!from || assetId === undefined || assetId === null) {
             throw new Error('Invalid asset opt-in parameters');
         }       
 
         try {
+            const encoded = (await this.optInAssetTxn({ from, assetId })).encode();
+
+            const txnId = await this.signAndSubmitTransaction(encoded, from);
             
-            const publicKey: Buffer = await this.walletService.getPublicKey(from)
-            const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
-
-            const suggestedParams = await this.getSuggestedParams();
-
-            const crafter = CrafterFactory.getCrafter("algorand", this.configService)
-
-            const encoded = crafter.assetTransfer(assetId, fromAddr, fromAddr, 0)
-                                    .addFirstValidRound(Number(suggestedParams.firstValid))
-                                    .addLastValidRound(Number(suggestedParams.lastValid))
-                                    .get().encode()
-
-            const txnId = await this.signAndSubmitTransaction(encoded, from)
-            
-            return  { txnId, error: null};
+            return { txnId, error: null};
 
         } catch (error) {
-            console.error('Token transfer error:', error);
+            console.error('Asset opt-in error:', error);
             // Safely extract error message without assuming response structure
-            const errorMessage = error.response?.data?.message || error.message || 'Unknown error transferring token';
+            const errorMessage = error.response?.data?.message || error.message || 'Unknown error opting into asset';
             throw new Error(errorMessage);
         }
     }
+
+    async optOutAssetTxn(params: { from: string, assetId: number, close: string }) {
+        const fromAddr = await this.get_public_key({ from: params.from });
+
+        const suggestedParams = await this.getSuggestedParams();
+
+        const crafter = CrafterFactory.getCrafter("algorand", this.configService)
+
+        return crafter.assetTransfer(params.assetId, fromAddr, fromAddr, 0)
+                                .addFirstValidRound(Number(suggestedParams.firstValid))
+                                .addLastValidRound(Number(suggestedParams.lastValid))
+                                .addClose(params.close)
+                                .get()
+    }           
 
     async optOutAsset(assetId: number, from: string, close: string): Promise<{ txnId:string, error : string }> {
         if (!from || assetId === undefined || assetId === null) {
@@ -255,19 +278,7 @@ export class TransactionService implements OnModuleInit {
         }       
 
         try {
-            
-            const publicKey: Buffer = await this.walletService.getPublicKey(from)
-            const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
-
-            const suggestedParams = await this.getSuggestedParams();
-
-            const crafter = CrafterFactory.getCrafter("algorand", this.configService)
-
-            const encoded = crafter.assetTransfer(assetId, fromAddr, fromAddr, 0)
-                                    .addFirstValidRound(Number(suggestedParams.firstValid))
-                                    .addLastValidRound(Number(suggestedParams.lastValid))
-                                    .addClose(close)
-                                    .get().encode()
+            const encoded = (await this.optOutAssetTxn({ from, assetId, close })).encode();
 
             const txnId = await this.signAndSubmitTransaction(encoded, from)
             
@@ -304,6 +315,30 @@ export class TransactionService implements OnModuleInit {
         }
     }
 
+    /**
+     * Helper method to concatenate multiple Uint8Arrays into a single Uint8Array
+     * @param arrays An array of Uint8Arrays to concatenate
+     * @returns A single Uint8Array containing all the input arrays
+     */
+    async concatArrays(...arrs: ArrayLike<number>[]) {
+        const size = arrs.reduce((sum, arr) => sum + arr.length, 0);
+        const c = new Uint8Array(size);
+      
+        let offset = 0;
+        for (let i = 0; i < arrs.length; i++) {
+          c.set(arrs[i], offset);
+          offset += arrs[i].length;
+        }
+      
+        return c;
+      }
+
+    async get_public_key(params: { from: string }) {
+        const publicKey: Buffer = await this.walletService.getPublicKey(params.from);
+        const fromAddr = EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
+        return fromAddr;
+    }
+
     async signAndSubmitTransaction(encoded: Uint8Array, from: string): Promise<string> {
         const sig = await this.sign(encoded, from);
 
@@ -314,107 +349,63 @@ export class TransactionService implements OnModuleInit {
         return txtId;
     }
 
-       /**
-        * 
-        * @param from - Hashi vault key name
-        * @param approvalProgram 
-        * @param clearProgram 
-        * @param globalSchema 
-        * @param localSchema 
-        * @returns 
-        */   
-
-    async createApplication ( 
-        from: string, 
-        approvalProgram: string, 
-        clearProgram: string, 
-        appArgs: Array<Uint8Array>,
-        globalSchema: { numByteSlice: number, numUint: number }, localSchema: { numByteSlice: number, numUint: number } 
-    ): Promise<{ txnId:string, applicationId: number, error : string }> {
-        if (!from || !approvalProgram || !clearProgram || !globalSchema || !localSchema) {
-            throw new Error('Invalid application creation parameters');
-        }
-
-        const crafter = CrafterFactory.getCrafter("algorand", this.configService)
-
-        const publicKey: Buffer = await this.walletService.getPublicKey(from)
-        const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
-
-        const algodClient = new algosdk.Algodv2("", "https://testnet-api.algonode.cloud", "");
-        const suggestedParams = await algodClient.getTransactionParams().do();this.algorand("testnet")
-        try {
+    private async applicationCallTxn(params: {
+        from: string,
+        approvalProgram?: string,
+        clearProgram?: string,
+        globalSchema?: { numByteSlice: number, numUint: number },
+        localSchema?: { numByteSlice: number, numUint: number },
+        appArgs?: Array<Uint8Array>,
+        foreignApps?: Array<number>,
+        foreignAssets?: Array<number>,
+        accounts?: Array<string>,
+        appIndex?: number
+    }) {
+        
+        const fromAddr = await this.get_public_key(params);
+        
+        const suggestedParams = await this.getSuggestedParams();
+        const crafter = CrafterFactory.getCrafter("algorand", this.configService);
+        
+        const approvalProgramBytes = params.approvalProgram 
+            ? algosdk.base64ToBytes(params.approvalProgram) 
+            : new Uint8Array(0);
             
-            const encoded = crafter.createApplication(fromAddr, 
-                algosdk.base64ToBytes(approvalProgram), 
-                algosdk.base64ToBytes(clearProgram), 
-                appArgs,
-                globalSchema, 
-                localSchema, 
-                suggestedParams.firstValid, 
-                suggestedParams.lastValid)
-                .get().encode();
+        const clearProgramBytes = params.clearProgram 
+            ? algosdk.base64ToBytes(params.clearProgram) 
+            : new Uint8Array(0);
+            
+        const applicationBuilder = crafter.applicationCall(
+            fromAddr, 
+            approvalProgramBytes, 
+            clearProgramBytes,
+            params.appArgs || [], 
+            params.globalSchema || { numByteSlice: 0, numUint: 0 }, 
+            params.localSchema || { numByteSlice: 0, numUint: 0 }, 
+            BigInt(suggestedParams.firstValid), 
+            BigInt(suggestedParams.lastValid),
+            params.foreignApps || [], 
+            params.foreignAssets || [],
+            BigInt(params.appIndex || 0),
+            params.accounts || [])
 
-            //     console.log(encoded);
-                
-
-            const txnId = await this.signAndSubmitTransaction(encoded, from) // 'Test';//
-
-            const transaction = await this.waitForTransaction(txnId, 10, 2000, this.algorand("testnet"))     
-
-            return  { txnId, applicationId:transaction.transaction.createdApplicationIndex, error: null};
-        } catch (error) {
-            console.error('Application creation error:', error);
-            // Safely extract error message without assuming response structure
-            const errorMessage = error.response?.data?.message || error.message || 'Unknown error creating application';
-            throw new Error(errorMessage);
-        }
+        return applicationBuilder.get();
     }
 
-    async callApplicationABIMethod(from: string, appIndex: bigint, appArgs: any,  foreignApps: Array<number>, foreignAssets: Array<number>): Promise<{ txnId:string, error : string }> {
-        if (!from || appIndex === undefined || appIndex === null) {
-            throw new Error('Invalid application call parameters');
-        }   
-
-        const publicKey: Buffer = await this.walletService.getPublicKey(from)
-        const fromAddr =  EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
-       try {
-            const algodClient = new algosdk.Algodv2("", "https://testnet-api.algonode.cloud", "");
-            const suggestedParams = await algodClient.getTransactionParams().do();
-            
-            const crafter = CrafterFactory.getCrafter("algorand", this.configService)
-            
-            
-            const encoded = crafter.callApplicationMethod(fromAddr, appIndex, appArgs, foreignApps, foreignAssets, suggestedParams.firstValid, suggestedParams.lastValid).get().encode();
-            // const encoded = crafter.callApplicationMethod(fromAddr, appIndex, new Uint8Array(appArgs), foreignApps, foreignAssets, suggestedParams.firstValid, suggestedParams.lastValid).get().encode();
-
-            // const encoded = algosdk.makeApplicationNoOpTxnFromObject({
-            //     sender: fromAddr,
-            //     appIndex: appIndex,
-            //     appArgs: appArgs,
-            //     accounts: [],
-            //     foreignApps: foreignApps,
-            //     foreignAssets: foreignAssets,
-            //     boxes: [],
-            //     suggestedParams: suggestedParams
-            // }).toEncodingData();
-
-            // console.log(encoded);
-            
-            const txnId = await this.signAndSubmitTransaction(encoded, from);
-
-            // const transaction = await this.waitForTransaction(txnId, 10, 2000, this.algorand("testnet"))
-
-            // const result = await algodClient.getApplicationBoxById(appId, method).do();
-
-            return { txnId, error: null};
-        } catch (error) {
-            console.error('Application method call error:', error);
-            // Safely extract error message without assuming response structure
-            const errorMessage = error.response?.data?.message || error.message || 'Unknown error calling application method';
-            throw new Error(errorMessage);
-        }
-    }
-
+    /**
+     * 
+     * @param from - Hashi vault key name
+     * @param appIndex 
+     * @param approvalProgram 
+     * @param clearProgram 
+     * @param globalSchema 
+     * @param localSchema 
+     * @param appArgs 
+     * @param foreignApps 
+     * @param foreignAssets 
+     * @param accounts 
+     * @returns 
+     */
     async applicationCall(
         from: string, 
         appIndex: number, 
@@ -427,32 +418,19 @@ export class TransactionService implements OnModuleInit {
         foreignAssets?: Array<number>,
         accounts?: Array<string>): Promise<{ txnId: string, applicationId: number, error: string }> {  
             try {
-                const publicKey: Buffer = await this.walletService.getPublicKey(from)
-                const fromAddr = EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
-
-                const suggestedParams = await this.getSuggestedParams();
-
-                const crafter = CrafterFactory.getCrafter("algorand", this.configService)
-                
-                // Convert parameters to the correct types
-                const approvalProgramBytes = approvalProgram ? algosdk.base64ToBytes(approvalProgram) : new Uint8Array(0);
-                const clearProgramBytes = clearProgram ? algosdk.base64ToBytes(clearProgram) : new Uint8Array(0);
-                
-                const applicationBuilder = crafter.applicationCall(
-                    fromAddr, 
-                    approvalProgramBytes, 
-                    clearProgramBytes,
-                    appArgs, 
-                    globalSchema, 
-                    localSchema, 
-                    suggestedParams.firstValid, 
-                    suggestedParams.lastValid,
-                    foreignApps, 
+                const params = {
+                    from,
+                    appIndex,
+                    approvalProgram,
+                    clearProgram,
+                    globalSchema,
+                    localSchema,
+                    appArgs,
+                    foreignApps,
                     foreignAssets,
-                    BigInt(appIndex),
-                    accounts)
-
-                const encoded = applicationBuilder.get().encode();
+                    accounts
+                }
+                const encoded = (await this.applicationCallTxn(params)).encode();
 
                 const txnId = await this.signAndSubmitTransaction(encoded, from);
 
@@ -466,6 +444,153 @@ export class TransactionService implements OnModuleInit {
                 return { txnId: '', applicationId: appIndex, error: errorMessage };
             }
         
+    }
+
+
+
+    /**
+     * Creates a transaction group with multiple transaction types in the specified order
+     * @param from Sender address (wallet key name)
+     * @param transactions Array of transaction configurations
+     * @returns Transaction ID and error information
+     */
+    async groupTransaction(
+        from: string,
+        transactions: Array<{
+            type: 'payment' | 'application' | 'asset-transfer' | 'asset-create' | 'opt-in' | 'opt-out',
+            params: any
+        }>
+    ): Promise<{ txnId: string, error: string }> {
+        try {
+            const publicKey: Buffer = await this.walletService.getPublicKey(from);
+            const fromAddr = EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
+            const suggestedParams = await this.getSuggestedParams();
+            
+            // Get the crafter      
+            const crafter = CrafterFactory.getCrafter("algorand", this.configService);
+            
+            // Create individual transactions based on their type
+            const txObjects = [];
+            
+            for (const txConfig of transactions) {
+                let txObject;
+                
+                switch (txConfig.type) {
+                    case 'payment':
+                        // Payment transaction
+                        const paymentParams = txConfig.params;
+                        txObject = await this.makePaymentTxn(from, paymentParams.to, paymentParams.amount);
+                        break;
+                        
+                    case 'application':
+                        // Application call transaction
+                        const appParams = txConfig.params;
+                        
+                        txObject = await this.applicationCallTxn({
+                            from: from,
+                            appIndex: appParams.appIndex || 0,
+                            approvalProgram: appParams.approvalProgram,
+                            clearProgram: appParams.clearProgram,
+                            globalSchema: appParams.globalSchema,
+                            localSchema: appParams.localSchema,
+                            appArgs: appParams.appArgs || [],
+                            foreignApps: appParams.foreignApps || [],
+                            foreignAssets: appParams.foreignAssets || [],
+                            accounts: appParams.accounts || []
+                        });
+                        break;
+                        
+                    case 'asset-transfer':
+                        // Asset transfer transaction
+                        const assetParams = txConfig.params;
+                        txObject = await this.transferTokenTxn({
+                            from: from,
+                            to: assetParams.receiver,
+                            amount: assetParams.amount,
+                            assetId: assetParams.assetId
+                        });
+                    
+                        break;
+                        
+                    case 'asset-create':
+                        // Asset creation transaction
+                        const createParams = txConfig.params;
+                        txObject = await this.assetCreationTxn(
+                            createParams, 
+                            from, 
+                            createParams.assetName, 
+                            createParams.decimals, 
+                            createParams.totalSupply
+                        );
+                        break;
+
+                    case 'opt-in':
+                        // Asset opt-in transaction
+                        const optInParams = txConfig.params;
+                        txObject = await this.optInAssetTxn({
+                            from: from,
+                            assetId: optInParams.assetId
+                        });
+                        break;
+
+                    case 'opt-out':
+                        // Asset opt-out transaction
+                        const optOutParams = txConfig.params;
+                        txObject = await this.optOutAssetTxn({
+                            from: from,
+                            assetId: optOutParams.assetId,
+                            close: optOutParams.closeTo
+                        });
+                        break;  
+                        
+                    default:
+                        throw new Error(`Unsupported transaction type: ${txConfig.type}`);
+                }
+                
+                txObjects.push(txObject);
+            }
+            
+            // Group the transactions
+            const groupTx = crafter.groupTransaction(
+                fromAddr,
+                BigInt(suggestedParams.firstValid),
+                BigInt(suggestedParams.lastValid),
+                txObjects
+            ).get();
+            
+            // Get the transactions with group IDs
+            const encodedTxns = groupTx.encodeAll();
+            
+            // Sign the transactions
+            const signedTxns = [];
+            for (let i = 0; i < encodedTxns.length; i++) {
+                const signedTxn = await this.sign(encodedTxns[i], from);
+
+                const ready = await this.txnCrafter.addSignature(encodedTxns[i], signedTxn);    
+
+                signedTxns.push(ready);
+            }
+            
+
+            // Concatenate all signed transactions into a single byte array
+            const bytestoSubmit = await this.concatArrays(signedTxns);
+
+            const txnId = await this.walletService.submitTransaction(bytestoSubmit);
+            // // Submit the transaction group
+            // const algodV2Client = new algosdk.Algodv2("", "https://testnet-api.algonode.cloud", "");
+            // const txnResponse = await algodV2Client.sendRawTransaction(signedTxns).do();
+            // const txnId = txnResponse.txid;
+            
+            // Wait for confirmation
+            const algoClient = this.algorand("testnet");
+            await this.waitForTransaction(txnId, 10, 2000, algoClient);
+            
+            return { txnId: txnId, error: null };
+        } catch (error) {
+            console.error('Error in groupTransaction:', error);
+            const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
+            return { txnId: '', error: errorMessage };
+        }
     }
 
 }

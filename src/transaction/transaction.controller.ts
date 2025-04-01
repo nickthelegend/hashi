@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Logger, Param, Post, Res } from "@nestjs/common"
+import { Body, Controller, Get, Logger, Param, Post, Res, Query } from "@nestjs/common"
 import { WalletService } from "../wallet/wallet.service"
 import { IsString, IsNumber, IsOptional, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -153,8 +153,67 @@ export class Transaction {
         return await this.txnService.optOutAsset(assetId, body.from, body.close)
     }
 
-   
+    /**
+     * Creates a transaction group with multiple transaction types in the specified order
+     */
+    @Post("group-transaction")
+    async groupTransaction(@Body() body: { 
+        from: string, 
+        transactions: Array<{
+            type: 'payment' | 'application' | 'asset-transfer' | 'asset-create',
+            params: any
+        }>
+    }): Promise<{ txnId: string, error: string }> {
+        return await this.txnService.groupTransaction(
+            body.from,
+            body.transactions
+        );
+    }
 
+    /**
+     * Example of a group transaction with payment and asset transfer
+     * This demonstrates how to create a predefined group transaction
+     */
+    @Post("example-group-transaction")
+    async exampleGroupTransaction(@Body() body: { 
+        from: string,
+        receiverAddress: string,
+        amount: number,
+        assetId: number
+    }): Promise<{ txnId: string, error: string }> {
+        // Create a group transaction with two transactions:
+        // 1. A payment transaction
+        // 2. An asset transfer transaction
+        
+        const transactions = [
+            {
+                type: 'payment' as const,
+                params: {
+                    to: '5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI',//body.receiverAddress,
+                    amount: 202000//body.amount
+                }
+            },
+            {
+                type: 'application' as const,
+                params: {
+                    appIndex: 736444345,
+                    appArgs: [new Uint8Array(sha512_256.array(Buffer.from("opt_in_to_asset(pay)void")).slice(0, 4))],
+                    accounts: ['5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI'],
+                    foreignAssets: [734471494]
+                }
+            }
+        ];
+        
+        return await this.txnService.groupTransaction(
+            'test',
+            transactions
+        );
+
+        return await this.txnService.groupTransaction(
+            body.from,
+            transactions
+        );
+    }
 
    @Post('application-call')
    async applicationCall(@Body() body: { from: string, 
@@ -173,28 +232,27 @@ export class Transaction {
 
 
         // Participation Token Application Call
-        // return await this.txnService.applicationCall('test', 0,
-        //     'CiADAAEEJgEIYXNzZXRfaWSABG6nG1OABBV0U1qABCIZu6eABPFXdyaABDOzSZ42GgCOBQABABYALAA4AEQAMRkURDEYFEQ2GgEXNhoCF4gAPiNDMRkURDEYRDEWIwlJOBAjEkSIAD0jQzEZFEQxGESIAGQjQzEZFEQxGESIAH0jQzEZgQUSRDEYRIgAiCNDigIAKIv+Z4AIcXVhbnRpdHmL/2eJigEAMQAyCRJEMgoiKGVEcABFARREi/84BzIKEkSxIihlRDIKIrISshSyESSyECKyAbOJigAAMQAiKGVEcABFARREsSIoZUQxACKyErIUshEkshAisgGziYoAALEiKGVEMQAjshKyFLIRJLIQIrIBs4mKAAAxADIJEkSxIihlRDIJSbIVIrISshSyESSyECKyAbOxMglJsgkisgiyByOyECKyAbOJ',
-        //     'CoEBQw==', 
-        //     { numByteSlice: 0, numUint: 2 }, { numByteSlice: 0, numUint: 0 },
-        //     [new Uint8Array(sha512_256.array(Buffer.from("create_application(uint64,uint64)void")).slice(0, 4)), algosdk.encodeUint64(735261053), algosdk.encodeUint64(1) ], 
-        //     [], []
-        //     );
-
-        var {txnId, error} = await this.txnService.makePayment('test', '5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI', 202000)
-
-
-        return await this.txnService.applicationCall('test', 736444345,
-            null,
-            null, 
-            null, null,
-            [new Uint8Array(sha512_256.array(Buffer.from("opt_in_to_asset(pay)void")).slice(0, 4)), Buffer.from("EJVPKD4RQELEMZ7D4W756LORLPBH6OBN773URZXAS22WPRLZW6OQ")], 
-            [], [735261053],
-            ['SEHSPKLFLP55PHXKKZPXAZ5DFE7DDBH3BHPVTRRKIEYCBJOJWTE4V42HLI']
+        return await this.txnService.applicationCall('test', 0,
+            'CiADAAEEJgEIYXNzZXRfaWSABG6nG1OABBV0U1qABCIZu6eABPFXdyaABDOzSZ42GgCOBQABABYALAA4AEQAMRkURDEYFEQ2GgEXNhoCF4gAPiNDMRkURDEYRDEWIwlJOBAjEkSIAD0jQzEZFEQxGESIAGQjQzEZFEQxGESIAH0jQzEZgQUSRDEYRIgAiCNDigIAKIv+Z4AIcXVhbnRpdHmL/2eJigEAMQAyCRJEMgoiKGVEcABFARREi/84BzIKEkSxIihlRDIKIrISshSyESSyECKyAbOJigAAMQAiKGVEcABFARREsSIoZUQxACKyErIUshEkshAisgGziYoAALEiKGVEMQAjshKyFLIRJLIQIrIBs4mKAAAxADIJEkSxIihlRDIJSbIVIrISshSyESSyECKyAbOxMglJsgkisgiyByOyECKyAbOJ',
+            'CoEBQw==', 
+            { numByteSlice: 0, numUint: 2 }, { numByteSlice: 0, numUint: 0 },
+            [new Uint8Array(sha512_256.array(Buffer.from("create_application(uint64,uint64)void")).slice(0, 4)), algosdk.encodeUint64(735261053), algosdk.encodeUint64(1) ], 
+            [], []
             );
 
+        // var {txnId, error} = await this.txnService.makePayment('test', '5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI', 202000)
 
 
+        // return await this.txnService.applicationCall('test', 736444345,
+        //     null,
+        //     null, 
+        //     null, null,
+        //     [new Uint8Array(sha512_256.array(Buffer.from("opt_in_to_asset(pay)void")).slice(0, 4)), Buffer.from("EJVPKD4RQELEMZ7D4W756LORLPBH6OBN773URZXAS22WPRLZW6OQ")], 
+        //     [], [735261053],
+        //     ['SEHSPKLFLP55PHXKKZPXAZ5DFE7DDBH3BHPVTRRKIEYCBJOJWTE4V42HLI']
+        //     );
+
+        // For all other application calls, use the standard method
         return await this.txnService.applicationCall(
             body.from, 
             body.appIndex??0, 
@@ -209,5 +267,7 @@ export class Transaction {
         )
 
 
-   }
+    }
+
 }
+

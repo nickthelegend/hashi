@@ -2,9 +2,10 @@ import { ConfigService } from "@nestjs/config"
 import { Crafter } from "./crafter.role"
 import { AlgorandTransactionCrafter } from '@algorandfoundation/algo-models'
 import { AssetCreateTxBuilder, IAssetCreateTxBuilder } from "./asset.create"
-
+import { PaymentTxBuilder } from "./payment"
 import { AssetTransfer, AssetTransferTxBuilder, IAssetTransferTxBuilder } from "./asset.transfer"
 import { ApplicationTxBuilder } from "./application.transaction"
+import { GroupTransactionBuilder, IGroupTransactionBuilder } from "./group.transaction"
 
 
 export class AlgoTxCrafter extends AlgorandTransactionCrafter {
@@ -47,7 +48,8 @@ export class AlgoTxCrafter extends AlgorandTransactionCrafter {
 		lastRound:bigint,
 		foreignApps: Array<number>,
 		foreignAssets: Array<number>,
-		appIndex: bigint): any {
+		appIndex: bigint,
+		accounts?: Array<string>): any {			
 		const applicationBuilder = new ApplicationTxBuilder(this.genesisIdCrafter, this.genesisHashCrafter)
 		.addSender(from)
 		.addFee(BigInt(1000))
@@ -101,6 +103,11 @@ export class AlgoTxCrafter extends AlgorandTransactionCrafter {
 			applicationBuilder.addForeignAssets(foreignAssets)
 		}	
 
+		// Check and add accounts if provided and valid
+		if(accounts && Array.isArray(accounts) && accounts.length > 0) {
+			applicationBuilder.addAccounts(accounts)
+		}
+
 		// Check and add application ID if provided
 		if(appIndex && appIndex > 0n) {
 			applicationBuilder.addApplicationId(appIndex)
@@ -109,16 +116,14 @@ export class AlgoTxCrafter extends AlgorandTransactionCrafter {
 		return applicationBuilder;
 	}
 
-	callApplicationMethod(from: string, appIndex: bigint, appArgs: Array<Uint8Array>,  foreignApps: Array<number>, foreignAssets: Array<number>, firstRound:bigint, lastRound:bigint): any {
-		return new ApplicationTxBuilder(this.genesisIdCrafter, this.genesisHashCrafter)
+	groupTransaction(from: string, firstRound: bigint, lastRound: bigint, transactions: Array<any>): any {
+		const groupBuilder = new GroupTransactionBuilder(this.genesisIdCrafter, this.genesisHashCrafter)
 		.addSender(from)
-		.addFee(BigInt(1000))
+		.addFee(BigInt(1000) * BigInt(transactions.length))
 		.addFirstValidRound(firstRound)
 		.addLastValidRound(lastRound)
-		.addApplicationId(appIndex)
-		.addApplicationArgs(appArgs)
-		// .addForeignApps(foreignApps)
-		// .addForeignAssets(foreignAssets)
+		.addTransactions(transactions)
+		return groupBuilder;
 	}
 }
 
