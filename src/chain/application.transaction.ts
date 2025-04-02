@@ -187,12 +187,12 @@ export class ApplicationTxBuilder implements IApplicationNoOpTxBuilder {
     }
 
     addForeignAssets(assets: number[]): IApplicationNoOpTxBuilder {
-        this.tx.apfa = assets;
+        this.tx.apas = assets;
         return this;
     }
 
     addForeignApps(apps: number[]): IApplicationNoOpTxBuilder {
-        this.tx.apas = apps;
+        this.tx.apfa = apps;
         return this;
     }
 

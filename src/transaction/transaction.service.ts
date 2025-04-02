@@ -389,6 +389,8 @@ export class TransactionService implements OnModuleInit {
             BigInt(params.appIndex || 0),
             params.accounts || [])
 
+            console.log('Application Builder:', applicationBuilder);
+
         return applicationBuilder.get();
     }
 
@@ -559,33 +561,52 @@ export class TransactionService implements OnModuleInit {
             ).get();
             
             // Get the transactions with group IDs
+            console.log('Getting transactions with group IDs assigned');
             const encodedTxns = groupTx.encodeAll();
+            console.log(`Got ${encodedTxns.length} encoded transactions with group IDs`);
             
             // Sign the transactions
+            console.log(`Preparing to sign ${encodedTxns.length} transactions`);
             const signedTxns = [];
             for (let i = 0; i < encodedTxns.length; i++) {
-                const signedTxn = await this.sign(encodedTxns[i], from);
+                console.log(`Signing transaction ${i+1}/${encodedTxns.length}`);
+                try {
+                    const signedTxn = await this.sign(encodedTxns[i], from);
+                    console.log(`Transaction ${i+1} signed successfully`);
 
-                const ready = await this.txnCrafter.addSignature(encodedTxns[i], signedTxn);    
+                    const ready = await this.txnCrafter.addSignature(encodedTxns[i], signedTxn);    
+                    console.log(`Signature added to transaction ${i+1}`);
 
-                signedTxns.push(ready);
+                    signedTxns.push(ready);
+                } catch (error) {
+                    console.error(`Error signing transaction ${i+1}:`, error);
+                    throw new Error(`Failed to sign transaction ${i+1}: ${error.message}`);
+                }
             }
+            console.log(`Successfully signed ${signedTxns.length} transactions`);
             
 
             // Concatenate all signed transactions into a single byte array
-            const bytestoSubmit = await this.concatArrays(signedTxns);
-
-            const txnId = await this.walletService.submitTransaction(bytestoSubmit);
-            // // Submit the transaction group
-            // const algodV2Client = new algosdk.Algodv2("", "https://testnet-api.algonode.cloud", "");
-            // const txnResponse = await algodV2Client.sendRawTransaction(signedTxns).do();
-            // const txnId = txnResponse.txid;
-            
-            // Wait for confirmation
-            const algoClient = this.algorand("testnet");
-            await this.waitForTransaction(txnId, 10, 2000, algoClient);
-            
-            return { txnId: txnId, error: null };
+            console.log('Concatenating signed transactions...');
+            try {
+                const bytestoSubmit = await this.concatArrays(...signedTxns);
+                console.log(`Concatenated ${signedTxns.length} transactions into ${bytestoSubmit.length} bytes`);
+                
+                console.log('Submitting group transaction...');
+                const txnId = await this.walletService.submitTransaction(bytestoSubmit);
+                console.log('Group transaction submitted successfully with ID:', txnId);
+                
+                // Wait for confirmation
+                console.log('Waiting for transaction confirmation...');
+                const algoClient = this.algorand("testnet");
+                await this.waitForTransaction(txnId, 10, 2000, algoClient);
+                console.log('Transaction confirmed!');
+                
+                return { txnId, error: null };
+            } catch (error) {
+                console.error('Error in group transaction processing:', error);
+                return { txnId: null, error: error.message || 'Unknown error in group transaction' };
+            }
         } catch (error) {
             console.error('Error in groupTransaction:', error);
             const errorMessage = error.response?.data?.message || error.message || 'Unknown error';

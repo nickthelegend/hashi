@@ -2,7 +2,6 @@ import { ConfigService } from "@nestjs/config"
 import { Crafter } from "./crafter.role"
 import { AlgorandTransactionCrafter } from '@algorandfoundation/algo-models'
 import { AssetCreateTxBuilder, IAssetCreateTxBuilder } from "./asset.create"
-import { PaymentTxBuilder } from "./payment"
 import { AssetTransfer, AssetTransferTxBuilder, IAssetTransferTxBuilder } from "./asset.transfer"
 import { ApplicationTxBuilder } from "./application.transaction"
 import { GroupTransactionBuilder, IGroupTransactionBuilder } from "./group.transaction"
@@ -117,9 +116,27 @@ export class AlgoTxCrafter extends AlgorandTransactionCrafter {
 	}
 
 	groupTransaction(from: string, firstRound: bigint, lastRound: bigint, transactions: Array<any>): any {
+		// Calculate a higher fee for application calls
+		let totalFee = BigInt(0);
+		for (const tx of transactions) {
+			// Application calls need higher fees
+			if (tx.type === 'application') {
+				totalFee += BigInt(2000); // Higher fee for application calls
+			} else {
+				totalFee += BigInt(1000); // Standard fee for other transaction types
+			}
+		}
+		
+		// Ensure minimum fee
+		if (totalFee < BigInt(2000)) {
+			totalFee = BigInt(2000);
+		}
+		
+		console.log(`Setting group transaction fee to ${totalFee} microAlgos`);
+		
 		const groupBuilder = new GroupTransactionBuilder(this.genesisIdCrafter, this.genesisHashCrafter)
 		.addSender(from)
-		.addFee(BigInt(1000) * BigInt(transactions.length))
+		// .addFee(totalFee)
 		.addFirstValidRound(firstRound)
 		.addLastValidRound(lastRound)
 		.addTransactions(transactions)

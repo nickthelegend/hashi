@@ -198,8 +198,8 @@ export class Transaction {
                 params: {
                     appIndex: 736444345,
                     appArgs: [new Uint8Array(sha512_256.array(Buffer.from("opt_in_to_asset(pay)void")).slice(0, 4))],
-                    accounts: ['5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI'],
-                    foreignAssets: [734471494]
+                    // accounts: ['5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI'],
+                    foreignAssets: [735261053]
                 }
             }
         ];
