@@ -4,6 +4,7 @@ import { Encoder } from "./encoder.role";
 import nacl from "tweetnacl";
 import { msgpackRawEncode } from "algosdk";
 import { concatArrays } from "../utils/utils";
+import sha512 from 'js-sha512';
 
 const ALGORAND_MAX_TX_GROUP_SIZE = 16;
 const TX_GROUP_TAG = new TextEncoder().encode('TG');
@@ -31,9 +32,10 @@ export class GroupTransaction {
 
     rawTxID(txn: any): Uint8Array {
         
-        const enMsg = txn.encode();
+        const enMsg = txn.get().encode();
         const gh = concatArrays(TX_TAG, enMsg);
-        return Uint8Array.from(nacl.hash(gh));
+        
+        return Uint8Array.from(sha512.sha512_256.array((gh)));
       }     
 
     txGroupPreimage(txnHashes: Uint8Array[]): Uint8Array {
@@ -65,7 +67,8 @@ export class GroupTransaction {
     assignGroupID(txns: any[]) {
         const gid = this.computeGroupID(txns);
         for (const txn of txns) {
-          txn.group = gid;
+          // Use the correct property name 'grp' instead of 'group'
+          txn.grp = gid;
         }
         return txns;
       }
@@ -81,20 +84,14 @@ export class GroupTransaction {
                 // Assign the group ID to all transactions
                 for (let i = 0; i < this.transactions.length; i++) {
                     // For transactions that have an addGroup method (like from algo-models)
-                    if (typeof this.transactions[i].addGroup === 'function') {
-                        console.log(`Using addGroup method for transaction ${i+1}`);
-                        this.transactions[i].addGroup(this.groupId);
-                    } 
-                    // For transactions that have a direct grp property
-                    else {
-                        console.log(`Setting grp property directly for transaction ${i+1}`);
-                        this.transactions[i].grp = this.groupId;
-                    }
+                    // if (typeof this.transactions[i].addGroup === 'function') {
                     
-                    // Remove any 'group' field if it exists as it's not a valid Algorand transaction field
-                    if (this.transactions[i].group !== undefined) {
-                        delete this.transactions[i].group;
-                    }
+                    console.log(`Using addGroup method for transaction ${i+1}`);
+                    this.transactions[i].addGroup(this.groupId);
+
+                    console.log(this.transactions[i]);
+                    
+                    
                 }
             }
             
@@ -120,11 +117,11 @@ export class GroupTransaction {
                         console.error(`Transaction ${i+1} is missing required 'type' property`);
                     }
                     
-                    if (typeof tx.encode === 'function') {
+                    if (typeof tx.get().encode === 'function') {
                         // For our custom transaction types from algo-models
                         console.log(`Encoding transaction ${i+1} with encode() method`);
                         try {
-                            const encoded = tx.encode();
+                            const encoded = tx.get().encode();
                             console.log(`Successfully encoded transaction ${i+1}`);
                             encodedTxns.push(encoded);
                         } catch (encodeSpecificError) {

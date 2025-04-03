@@ -5,11 +5,31 @@ import { AssetCreateTxBuilder, IAssetCreateTxBuilder } from "./asset.create"
 import { AssetTransfer, AssetTransferTxBuilder, IAssetTransferTxBuilder } from "./asset.transfer"
 import { ApplicationTxBuilder } from "./application.transaction"
 import { GroupTransactionBuilder, IGroupTransactionBuilder } from "./group.transaction"
+import { PaymentTxBuilder, IPaymentTxBuilder } from "./payment.transaction"
 
 
 export class AlgoTxCrafter extends AlgorandTransactionCrafter {
 	constructor(private readonly genesisIdCrafter: string, private genesisHashCrafter: string, private readonly configService: ConfigService) {
 		super(genesisIdCrafter, genesisHashCrafter)
+	}
+
+	/**
+	 * Create a payment transaction using our custom PaymentTxBuilder
+	 * @param from Sender address
+	 * @param to Receiver address
+	 * @param amount Amount in microAlgos
+	 * @param firstRound First valid round
+	 * @param lastRound Last valid round
+	 * @returns Payment transaction builder
+	 */
+	payment(from: string, to: string, amount: number, firstRound: number, lastRound: number): IPaymentTxBuilder {
+		return new PaymentTxBuilder(this.genesisIdCrafter, this.genesisHashCrafter)
+			.addSender(from)
+			.addReceiver(to)
+			.addAmount(amount)
+			.addFee(1000)
+			.addFirstValidRound(firstRound)
+			.addLastValidRound(lastRound);
 	}
 
 	assetTransfer(assetId: number, from: string, to: string, amount: number | bigint): IAssetTransferTxBuilder {

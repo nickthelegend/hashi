@@ -13,7 +13,7 @@ import { AlgorandClient, Config } from '@algorandfoundation/algokit-utils'
 import { encode } from "punycode"
 import { type } from "os"
 import { concatArrays } from "../utils/utils"
-import SendRawTransaction from "algosdk/dist/types/client/v2/algod/sendRawTransaction"
+
 
 interface Assetparams {
     assetName?: string;
@@ -85,11 +85,12 @@ export class TransactionService implements OnModuleInit {
         const fromAddr = await this.get_public_key({ from });
 
         const suggestedParams = await this.getSuggestedParams();
-    
-        return this.txnCrafter.pay(amt, fromAddr, to)
-                                        .addFirstValidRound(Number(suggestedParams.firstValid))
-                                        .addLastValidRound(Number(suggestedParams.lastValid))
-                                        .get()
+        
+        // Get a crafter that uses our custom PaymentTxBuilder
+        const crafter = CrafterFactory.getCrafter("algorand", this.configService);
+        
+        // Use our custom payment method that properly handles group IDs
+        return crafter.payment(fromAddr, to, amt, Number(suggestedParams.firstValid), Number(suggestedParams.lastValid));
     }
 
     /**
@@ -106,7 +107,7 @@ export class TransactionService implements OnModuleInit {
         }
 
         try {
-            const encoded = (await this.makePaymentTxn(from, to, amt)).encode();
+            const encoded = (await this.makePaymentTxn(from, to, amt)).get().encode();
 
             const txnId = await this.signAndSubmitTransaction(encoded, from);
             
@@ -391,7 +392,7 @@ export class TransactionService implements OnModuleInit {
             params.fee || 1000, // Default fee
             params.accounts || [])
 
-        return applicationBuilder.get();
+        return applicationBuilder;
     }
 
     /**
@@ -433,7 +434,7 @@ export class TransactionService implements OnModuleInit {
                     accounts,
                     fee
                 }
-                const encoded = (await this.applicationCallTxn(params)).encode();
+                const encoded = (await this.applicationCallTxn(params)).get().encode();
 
                 const txnId = await this.signAndSubmitTransaction(encoded, from);
 
@@ -553,6 +554,9 @@ export class TransactionService implements OnModuleInit {
                 
                 txObjects.push(txObject);
             }
+
+            console.log(txObjects);
+            
             
             // Group the transactions
             const groupTx = crafter.groupTransaction(
@@ -563,6 +567,8 @@ export class TransactionService implements OnModuleInit {
             ).get();
             
             const encodedTxns = groupTx.encodeAll();           
+            
+            console.log(encodedTxns);
             
             const signedTxns = [];
             

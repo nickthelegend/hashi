@@ -10,6 +10,8 @@ import { ApiTags } from "@nestjs/swagger"
 import { TransactionService } from "./transaction.service"
 import algosdk from "algosdk";
 import {sha512_256} from "js-sha512";
+import { AlgorandEncoder, AlgorandTransactionCrafter, AssetParamsBuilder } from '@algorandfoundation/algo-models'
+import { concatArrays } from "../utils/utils"
 
 
 // DTO for required parameters
@@ -216,6 +218,119 @@ export class Transaction {
         );
     }
 
+    @Post("example-group-transaction-1")
+    async exampleGroupTransaction_1(@Body() body: { 
+        from: string,
+        receiverAddress: string,
+        amount: number,
+        assetId: number
+    }): Promise<{ txnId: string, error: string }> {
+        // Create a group transaction with two transactions:
+        // 1. A payment transaction
+        // 2. An asset transfer transaction
+        
+        const transactions = [
+            {
+                type: 'payment' as const,
+                params: {
+                    to: '5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI',//body.receiverAddress,
+                    amount: 202000//body.amount
+                }
+            },
+            {
+                type: 'payment' as const,
+                params: {
+                    to: 'V5LR6C5SVHBQY3SPTEPD5WEGNBBUDNEP2MSDIONQIODZXZHRMC6QF3CTZI',//body.receiverAddress,
+                    amount: 202000//body.amount
+                }
+            }
+        ];
+        
+        return await this.txnService.groupTransaction(
+            'test',
+            transactions
+        );
+
+        return await this.txnService.groupTransaction(
+            body.from,
+            transactions
+        );
+    }
+
+    getLocalAlgodClient() {
+        const algodToken = 'a'.repeat(64);
+        const algodServer = 'http://localhost';
+        const algodPort = process.env.ALGOD_PORT || '4001';
+      
+        const algodClient = new algosdk.Algodv2(algodToken, algodServer, algodPort);
+        return algodClient;
+      }
+
+    async algosdkGroupTransaction(@Body() body: {   
+    }): Promise<{ txnId: string, error: string }> {
+        
+        const acct1 = '5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI';
+        const acct2 = 'V5LR6C5SVHBQY3SPTEPD5WEGNBBUDNEP2MSDIONQIODZXZHRMC6QF3CTZI';
+
+        // example: ATOMIC_CREATE_TXNS
+        const suggestedParams = await this.txnService.getSuggestedParams();
+
+        const alicesTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+            sender: 'C6A7MF2QX27SARKX32PUH2WWTUMFTH3UUBQ4DU4KBNXB4N2DTENO6HVF3M',
+            receiver: acct1,
+            amount: 1e6,
+            suggestedParams,
+        });
+
+        const bobsTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+            sender: 'C6A7MF2QX27SARKX32PUH2WWTUMFTH3UUBQ4DU4KBNXB4N2DTENO6HVF3M',
+            receiver: acct2,
+            amount: 1e6,
+            suggestedParams,
+        });
+        // example: ATOMIC_CREATE_TXNS
+
+        // example: ATOMIC_GROUP_TXNS
+        const encodedTxns = [alicesTxn, bobsTxn];
+
+        const txnGroup = algosdk.assignGroupID(encodedTxns);
+
+        
+        const txnCrafter = new AlgorandTransactionCrafter('testnet-v1.0', 'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=')
+
+        // assignGroupID returns the same txns with the group ID set
+        // const txnGroup = algosdk.assignGroupID(txnArray);
+        const signedTxns = [];
+            
+            // First sign all transactions
+            for (let i = 0; i < txnGroup.length; i++) {
+                try {
+                    const signedTxn = await this.txnService.sign(txnGroup[i].bytesToSign(), 'test');
+                    const ready = await txnCrafter.addSignature(txnGroup[i].bytesToSign(), signedTxn);    
+                    signedTxns.push(ready);
+                } catch (error) {
+                    console.error(`Error signing transaction ${i+1}:`, error);
+                    throw new Error(`Failed to sign transaction ${i+1}: ${error.message}`);
+                }
+            }
+            
+            // Now submit all transactions as a group
+            try {
+
+                const bytestoSubmit = concatArrays(...signedTxns);
+                
+                const txnId = await this.walletService.submitTransaction(bytestoSubmit);
+                
+                return { txnId, error: null };
+            } catch (error) {
+                console.error('Error in group transaction processing:', error);
+                return { txnId: null, error: error.message || 'Unknown error in group transaction' };
+            }
+
+        
+        return { txnId: '', error: '' };
+    }
+        
     //736766885
    @Post('application-call')
    async applicationCall(@Body() body: { from: string, 
