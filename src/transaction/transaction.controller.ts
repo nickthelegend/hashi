@@ -199,7 +199,8 @@ export class Transaction {
                     appIndex: 736444345,
                     appArgs: [new Uint8Array(sha512_256.array(Buffer.from("opt_in_to_asset(pay)void")).slice(0, 4))],
                     // accounts: ['5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI'],
-                    foreignAssets: [735261053]
+                    foreignAssets: [735261053],
+                    fee: 2000
                 }
             }
         ];
@@ -215,6 +216,7 @@ export class Transaction {
         );
     }
 
+    //736766885
    @Post('application-call')
    async applicationCall(@Body() body: { from: string, 
     approvalProgram?: string, 
@@ -225,7 +227,8 @@ export class Transaction {
     appArgs?: Array<Uint8Array>, 
     foreignApps?: Array<number>, 
     foreignAssets?: Array<number>,
-    accounts?: Array<string>
+    accounts?: Array<string>,
+    fee?: number
     }
     ): Promise<{ txnId: string, error: string }> {
 
@@ -237,7 +240,8 @@ export class Transaction {
             'CoEBQw==', 
             { numByteSlice: 0, numUint: 2 }, { numByteSlice: 0, numUint: 0 },
             [new Uint8Array(sha512_256.array(Buffer.from("create_application(uint64,uint64)void")).slice(0, 4)), algosdk.encodeUint64(735261053), algosdk.encodeUint64(1) ], 
-            [], []
+            [], [],[],
+            1000
             );
 
         // var {txnId, error} = await this.txnService.makePayment('test', '5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI', 202000)
@@ -263,7 +267,8 @@ export class Transaction {
             body.appArgs??[], 
             body.foreignApps??[], 
             body.foreignAssets??[],
-            body.accounts??[]
+            body.accounts??[],
+            body.fee
         )
 
 

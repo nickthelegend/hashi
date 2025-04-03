@@ -12,6 +12,8 @@ import algosdk from "algosdk"
 import { AlgorandClient, Config } from '@algorandfoundation/algokit-utils'
 import { encode } from "punycode"
 import { type } from "os"
+import { concatArrays } from "../utils/utils"
+import SendRawTransaction from "algosdk/dist/types/client/v2/algod/sendRawTransaction"
 
 interface Assetparams {
     assetName?: string;
@@ -35,8 +37,6 @@ export class TransactionService implements OnModuleInit {
         private genesisId :string,
         private genesisHash: string,
         ) {
-            // this.crafter = CrafterFactory.getCrafter("algorand", this.configService)
-
             this.genesisId = configService.get<string>("GENESIS_ID")
 			this.genesisHash = configService.get<string>("GENESIS_HASH")
             this.txnCrafter = new AlgorandTransactionCrafter(this.genesisId, this.genesisHash)
@@ -359,7 +359,8 @@ export class TransactionService implements OnModuleInit {
         foreignApps?: Array<number>,
         foreignAssets?: Array<number>,
         accounts?: Array<string>,
-        appIndex?: number
+        appIndex?: number,
+        fee?: number
     }) {
         
         const fromAddr = await this.get_public_key(params);
@@ -387,9 +388,8 @@ export class TransactionService implements OnModuleInit {
             params.foreignApps || [], 
             params.foreignAssets || [],
             BigInt(params.appIndex || 0),
+            params.fee || 1000, // Default fee
             params.accounts || [])
-
-            console.log('Application Builder:', applicationBuilder);
 
         return applicationBuilder.get();
     }
@@ -418,7 +418,7 @@ export class TransactionService implements OnModuleInit {
         appArgs?: Array<Uint8Array>, 
         foreignApps?: Array<number>, 
         foreignAssets?: Array<number>,
-        accounts?: Array<string>): Promise<{ txnId: string, applicationId: number, error: string }> {  
+        accounts?: Array<string>, fee?: number): Promise<{ txnId: string, applicationId: number, error: string }> {  
             try {
                 const params = {
                     from,
@@ -430,7 +430,8 @@ export class TransactionService implements OnModuleInit {
                     appArgs,
                     foreignApps,
                     foreignAssets,
-                    accounts
+                    accounts,
+                    fee
                 }
                 const encoded = (await this.applicationCallTxn(params)).encode();
 
@@ -498,7 +499,8 @@ export class TransactionService implements OnModuleInit {
                             appArgs: appParams.appArgs || [],
                             foreignApps: appParams.foreignApps || [],
                             foreignAssets: appParams.foreignAssets || [],
-                            accounts: appParams.accounts || []
+                            accounts: appParams.accounts || [],
+                            fee: appParams.fee || 1000
                         });
                         break;
                         
@@ -560,58 +562,39 @@ export class TransactionService implements OnModuleInit {
                 txObjects
             ).get();
             
-            // Get the transactions with group IDs
-            console.log('Getting transactions with group IDs assigned');
-            const encodedTxns = groupTx.encodeAll();
-            console.log(`Got ${encodedTxns.length} encoded transactions with group IDs`);
+            const encodedTxns = groupTx.encodeAll();           
             
-            // Sign the transactions
-            console.log(`Preparing to sign ${encodedTxns.length} transactions`);
             const signedTxns = [];
+            
+            // First sign all transactions
             for (let i = 0; i < encodedTxns.length; i++) {
-                console.log(`Signing transaction ${i+1}/${encodedTxns.length}`);
                 try {
                     const signedTxn = await this.sign(encodedTxns[i], from);
-                    console.log(`Transaction ${i+1} signed successfully`);
-
                     const ready = await this.txnCrafter.addSignature(encodedTxns[i], signedTxn);    
-                    console.log(`Signature added to transaction ${i+1}`);
-
                     signedTxns.push(ready);
                 } catch (error) {
                     console.error(`Error signing transaction ${i+1}:`, error);
                     throw new Error(`Failed to sign transaction ${i+1}: ${error.message}`);
                 }
             }
-            console.log(`Successfully signed ${signedTxns.length} transactions`);
             
-
-            // Concatenate all signed transactions into a single byte array
-            console.log('Concatenating signed transactions...');
+            // Now submit all transactions as a group
             try {
-                const bytestoSubmit = await this.concatArrays(...signedTxns);
-                console.log(`Concatenated ${signedTxns.length} transactions into ${bytestoSubmit.length} bytes`);
+
+                const bytestoSubmit = concatArrays(...signedTxns);
                 
-                console.log('Submitting group transaction...');
                 const txnId = await this.walletService.submitTransaction(bytestoSubmit);
-                console.log('Group transaction submitted successfully with ID:', txnId);
-                
-                // Wait for confirmation
-                console.log('Waiting for transaction confirmation...');
-                const algoClient = this.algorand("testnet");
-                await this.waitForTransaction(txnId, 10, 2000, algoClient);
-                console.log('Transaction confirmed!');
                 
                 return { txnId, error: null };
             } catch (error) {
                 console.error('Error in group transaction processing:', error);
                 return { txnId: null, error: error.message || 'Unknown error in group transaction' };
             }
+            
         } catch (error) {
             console.error('Error in groupTransaction:', error);
             const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
             return { txnId: '', error: errorMessage };
         }
     }
-
 }

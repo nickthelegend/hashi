@@ -48,10 +48,11 @@ export class AlgoTxCrafter extends AlgorandTransactionCrafter {
 		foreignApps: Array<number>,
 		foreignAssets: Array<number>,
 		appIndex: bigint,
+		fee: number,
 		accounts?: Array<string>): any {			
 		const applicationBuilder = new ApplicationTxBuilder(this.genesisIdCrafter, this.genesisHashCrafter)
 		.addSender(from)
-		.addFee(BigInt(1000))
+		.addFee(BigInt(fee))
 		.addFirstValidRound(firstRound)
 		.addLastValidRound(lastRound)
 
@@ -116,27 +117,10 @@ export class AlgoTxCrafter extends AlgorandTransactionCrafter {
 	}
 
 	groupTransaction(from: string, firstRound: bigint, lastRound: bigint, transactions: Array<any>): any {
-		// Calculate a higher fee for application calls
-		let totalFee = BigInt(0);
-		for (const tx of transactions) {
-			// Application calls need higher fees
-			if (tx.type === 'application') {
-				totalFee += BigInt(2000); // Higher fee for application calls
-			} else {
-				totalFee += BigInt(1000); // Standard fee for other transaction types
-			}
-		}
-		
-		// Ensure minimum fee
-		if (totalFee < BigInt(2000)) {
-			totalFee = BigInt(2000);
-		}
-		
-		console.log(`Setting group transaction fee to ${totalFee} microAlgos`);
-		
+
 		const groupBuilder = new GroupTransactionBuilder(this.genesisIdCrafter, this.genesisHashCrafter)
 		.addSender(from)
-		// .addFee(totalFee)
+		// .addFee(5000n)
 		.addFirstValidRound(firstRound)
 		.addLastValidRound(lastRound)
 		.addTransactions(transactions)
