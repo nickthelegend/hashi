@@ -33,9 +33,9 @@ export class GroupTransaction {
     rawTxID(txn: any): Uint8Array {
         
         const enMsg = txn.get().encode();
-        const gh = concatArrays(TX_TAG, enMsg);
+        // const gh = concatArrays(TX_TAG, enMsg);
         
-        return Uint8Array.from(sha512.sha512_256.array((gh)));
+        return Uint8Array.from(sha512.sha512_256.array(enMsg));
       }     
 
     txGroupPreimage(txnHashes: Uint8Array[]): Uint8Array {
@@ -50,7 +50,7 @@ export class GroupTransaction {
         const bytes = algosdk.msgpackRawEncode({
           txlist: txnHashes,
         });
-        return concatArrays(TX_GROUP_TAG, bytes);
+        return bytes;// concatArrays(TX_GROUP_TAG, bytes);
       }
 
     computeGroupID(txns: any[]): Uint8Array {
@@ -60,7 +60,7 @@ export class GroupTransaction {
         }
       
         const toBeHashed = this.txGroupPreimage(hashes);
-        const gid = nacl.hash(toBeHashed);
+        const gid = sha512.sha512_256.array(toBeHashed) //nacl.hash(toBeHashed);
         return Uint8Array.from(gid);
       }
 
@@ -88,9 +88,6 @@ export class GroupTransaction {
                     
                     console.log(`Using addGroup method for transaction ${i+1}`);
                     this.transactions[i].addGroup(this.groupId);
-
-                    console.log(this.transactions[i]);
-                    
                     
                 }
             }
@@ -100,29 +97,19 @@ export class GroupTransaction {
             } else {
                 console.log(`Encoding ${this.transactions.length} transactions without group ID`);
             }
+
+            console.log(this.transactions[0].get(), this.transactions[1].get());
+            
             
             const encodedTxns = [];
             
             for (let i = 0; i < this.transactions.length; i++) {
                 const tx = this.transactions[i];
                 try {
-                    // Log the transaction before encoding
-                    console.log(`Transaction ${i+1} before encoding:`);
-                    console.log(`Transaction ${i+1} type:`, tx.type);
-                    console.log(`Transaction ${i+1} fee:`, tx.fee ? tx.fee.toString() : 'undefined');
-                    console.log(`Transaction ${i+1} group ID:`, tx.grp ? Buffer.from(tx.grp).toString('base64') : 'undefined');
-                    
-                    // Check if the transaction has all required properties
-                    if (!tx.type) {
-                        console.error(`Transaction ${i+1} is missing required 'type' property`);
-                    }
                     
                     if (typeof tx.get().encode === 'function') {
-                        // For our custom transaction types from algo-models
-                        console.log(`Encoding transaction ${i+1} with encode() method`);
-                        try {
+                        try {                             
                             const encoded = tx.get().encode();
-                            console.log(`Successfully encoded transaction ${i+1}`);
                             encodedTxns.push(encoded);
                         } catch (encodeSpecificError) {
                             console.error(`Error in encode() method for transaction ${i+1}:`, encodeSpecificError);
@@ -153,8 +140,6 @@ export class GroupTransaction {
                 }
             }
             
-            console.log('Encoded transactions:', encodedTxns);
-            
             return encodedTxns;
         } catch (error) {
             console.error('Error encoding transactions:', error);
@@ -162,27 +147,6 @@ export class GroupTransaction {
         }
     }
 
-    // Encode the transaction for submission
-    encode(): Uint8Array[] {
-        try {
-            if (this.transactions.length === 0) {
-                throw new Error("No transactions to encode");
-            }
-            
-            // If we have more than one transaction, assign group IDs
-            if (this.transactions.length > 1) {
-                // Use our new assignGroupID method to set the group ID
-                this.assignGroupID(this.transactions);
-                this.groupId = this.transactions[0].group; // Store the group ID
-            }
-            
-            // Encode all transactions
-            return this.encodeAll();
-        } catch (error) {
-            console.error('Error encoding group transaction:', error);
-            throw new Error(`Failed to encode group transaction: ${error.message}`);
-        }
-    }
 
     // Get the transactions with group ID assigned
     getTransactions(): any[] {

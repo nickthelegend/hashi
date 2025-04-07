@@ -66,7 +66,7 @@ export class PaymentTxBuilder implements IPaymentTxBuilder {
      * @param genesisHash Genesis hash (base64 encoded)
      */
     constructor(genesisId: string, genesisHash: string) {
-        this.encoder = new AlgorandEncoder();
+        // this.encoder = new AlgorandEncoder();
         
         this.tx = new PaymentTransaction();
         this.tx.gen = genesisId;
@@ -76,12 +76,12 @@ export class PaymentTxBuilder implements IPaymentTxBuilder {
     }
     
     addSender(sender: string): IPaymentTxBuilder {
-        this.tx.snd = this.encoder.decodeAddress(sender);
+        this.tx.snd = new AlgorandEncoder().decodeAddress(sender);
         return this;
     }
     
     addReceiver(receiver: string): IPaymentTxBuilder {
-        this.tx.rcv = this.encoder.decodeAddress(receiver);
+        this.tx.rcv = new AlgorandEncoder().decodeAddress(receiver);
         return this;
     }
     
@@ -111,12 +111,12 @@ export class PaymentTxBuilder implements IPaymentTxBuilder {
     }
     
     addCloseTo(close: string): IPaymentTxBuilder {
-        this.tx.close = this.encoder.decodeAddress(close);
+        this.tx.close = new AlgorandEncoder().decodeAddress(close);
         return this;
     }
     
     addRekey(rekey: string): IPaymentTxBuilder {
-        this.tx.rekey = this.encoder.decodeAddress(rekey);
+        this.tx.rekey = new AlgorandEncoder().decodeAddress(rekey);
         return this;
     }
     

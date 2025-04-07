@@ -12,6 +12,7 @@ import algosdk from "algosdk";
 import {sha512_256} from "js-sha512";
 import { AlgorandEncoder, AlgorandTransactionCrafter, AssetParamsBuilder } from '@algorandfoundation/algo-models'
 import { concatArrays } from "../utils/utils"
+import { log } from "console";
 
 
 // DTO for required parameters
@@ -114,8 +115,6 @@ export class Transaction {
             freezeAddress: body.freezeAddress,
             clawbackAddress: body.clawbackAddress
         }
-
-        console.log(params);
         
 
         return await this.txnService.asset(body.from, body.unit, decimals, totalTokens, params)
@@ -129,6 +128,89 @@ export class Transaction {
         // return assetId
     }
 
+    /**
+     * Create and submit a group transaction with multiple transaction types
+     * @param body Contains the wallet key name and array of transaction configurations
+     * @returns Transaction ID and any error information
+     */
+    @Post("group-transaction")
+    async createGroupTransaction(@Body() body: {
+        from: string,
+        transactions: Array<{
+            type: 'payment' | 'application' | 'asset-transfer' | 'asset-create' | 'opt-in' | 'opt-out',
+            params: any
+        }>
+    }): Promise<{ txnId: string, error: string }> {
+        try {
+            // Validate input
+            if (!body.from) {
+                return { txnId: null, error: 'Sender address (from) is required' };
+            }
+            
+            if (!Array.isArray(body.transactions) || body.transactions.length === 0) {
+                return { txnId: null, error: 'At least one transaction is required' };
+            }
+            
+            if (body.transactions.length > 16) {
+                return { txnId: null, error: 'Maximum 16 transactions allowed in a group' };
+            }
+            
+            // Validate each transaction
+            for (const txn of body.transactions) {
+                if (!txn.type) {
+                    return { txnId: null, error: 'Transaction type is required for all transactions' };
+                }
+                
+                if (!txn.params) {
+                    return { txnId: null, error: 'Transaction parameters are required for all transactions' };
+                }
+                
+                // Type-specific validation
+                switch (txn.type) {
+                    case 'payment':
+                        if (!txn.params.to) {
+                            return { txnId: null, error: 'Receiver address is required for payment transactions' };
+                        }
+                        if (txn.params.amount === undefined) {
+                            return { txnId: null, error: 'Amount is required for payment transactions' };
+                        }
+                        break;
+                    case 'application':
+                        if (!txn.params.appIndex && txn.params.appIndex !== 0) {
+                            return { txnId: null, error: 'Application ID is required for application call transactions' };
+                        }
+                        break;
+                    case 'asset-transfer':
+                    case 'opt-in':
+                    case 'opt-out':
+                        if (!txn.params.assetIndex && txn.params.assetIndex !== 0) {
+                            return { txnId: null, error: 'Asset ID is required for asset transactions' };
+                        }
+                        break;
+                    case 'asset-create':
+                        if (!txn.params.total) {
+                            return { txnId: null, error: 'Total supply is required for asset creation' };
+                        }
+                        if (txn.params.decimals === undefined) {
+                            return { txnId: null, error: 'Decimals is required for asset creation' };
+                        }
+                        break;
+                    default:
+                        return { txnId: null, error: `Unsupported transaction type: ${txn.type}` };
+                }
+            }
+            
+            // Process the group transaction using algosdk
+            return await this.txnService.groupTransactionWithAlgosdk(
+                body.from,
+                body.transactions
+            );
+        } catch (error) {
+            console.error('Error in group transaction API:', error);
+            throw Error(error.message || 'An unexpected error occurred processing the group transaction')
+        }
+    }
+    
     @Post("asset-transfer")
     async transferAsset(@Body() body: { assetId: number, from: string, to: string, amount: number }): Promise<{ txnId: string, error:string }> {
 
@@ -207,7 +289,7 @@ export class Transaction {
             }
         ];
         
-        return await this.txnService.groupTransaction(
+        return await this.txnService.groupTransactionWithAlgosdk(
             'test',
             transactions
         );
@@ -219,12 +301,7 @@ export class Transaction {
     }
 
     @Post("example-group-transaction-1")
-    async exampleGroupTransaction_1(@Body() body: { 
-        from: string,
-        receiverAddress: string,
-        amount: number,
-        assetId: number
-    }): Promise<{ txnId: string, error: string }> {
+    async exampleGroupTransaction_1(): Promise<{ txnId: string, error: string }> {
         // Create a group transaction with two transactions:
         // 1. A payment transaction
         // 2. An asset transfer transaction
@@ -234,27 +311,27 @@ export class Transaction {
                 type: 'payment' as const,
                 params: {
                     to: '5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI',//body.receiverAddress,
-                    amount: 202000//body.amount
+                    amount: 100000//body.amount
                 }
             },
             {
                 type: 'payment' as const,
                 params: {
                     to: 'V5LR6C5SVHBQY3SPTEPD5WEGNBBUDNEP2MSDIONQIODZXZHRMC6QF3CTZI',//body.receiverAddress,
-                    amount: 202000//body.amount
+                    amount: 100000//body.amount
                 }
             }
         ];
         
-        return await this.txnService.groupTransaction(
+        return await this.txnService.groupTransactionWithAlgosdk(
             'test',
             transactions
         );
 
-        return await this.txnService.groupTransaction(
-            body.from,
-            transactions
-        );
+        // return await this.txnService.groupTransaction(
+        //     body.from,
+        //     transactions
+        // );
     }
 
     getLocalAlgodClient() {
@@ -268,6 +345,8 @@ export class Transaction {
 
     async algosdkGroupTransaction(@Body() body: {   
     }): Promise<{ txnId: string, error: string }> {
+
+        // const hashitxn = await this.exampleGroupTransaction_1();
         
         const acct1 = '5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI';
         const acct2 = 'V5LR6C5SVHBQY3SPTEPD5WEGNBBUDNEP2MSDIONQIODZXZHRMC6QF3CTZI';
@@ -278,23 +357,28 @@ export class Transaction {
         const alicesTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
             sender: 'C6A7MF2QX27SARKX32PUH2WWTUMFTH3UUBQ4DU4KBNXB4N2DTENO6HVF3M',
             receiver: acct1,
-            amount: 1e6,
+            amount: 1e5,
             suggestedParams,
         });
 
         const bobsTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
             sender: 'C6A7MF2QX27SARKX32PUH2WWTUMFTH3UUBQ4DU4KBNXB4N2DTENO6HVF3M',
             receiver: acct2,
-            amount: 1e6,
+            amount: 1e5,
             suggestedParams,
         });
         // example: ATOMIC_CREATE_TXNS
-
+        
+        
         // example: ATOMIC_GROUP_TXNS
         const encodedTxns = [alicesTxn, bobsTxn];
 
+        console.log(encodedTxns);
+        
         const txnGroup = algosdk.assignGroupID(encodedTxns);
-
+        
+        console.log(txnGroup);
+        
         
         const txnCrafter = new AlgorandTransactionCrafter('testnet-v1.0', 'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=')
 

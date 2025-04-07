@@ -9,7 +9,7 @@ import { EncoderFactory } from "src/chain/encoder.factory"
 import { AlgoTxCrafter, CrafterFactory } from "src/chain/crafter.factory"
 // import { AssetConfigTxBuilder, IAssetConfigTxBuilder } from "src/chain/algorand.transaction.acfg"
 import algosdk from "algosdk"
-import { AlgorandClient, Config } from '@algorandfoundation/algokit-utils'
+import { algo, AlgorandClient, Config } from '@algorandfoundation/algokit-utils'
 import { encode } from "punycode"
 import { type } from "os"
 import { concatArrays } from "../utils/utils"
@@ -81,10 +81,10 @@ export class TransactionService implements OnModuleInit {
 	}
     
 
-    async makePaymentTxn(from: string, to: string, amt: number) {
+    async makePaymentTxn(from: string, to: string, amt: number, suggestedParams:any) {
         const fromAddr = await this.get_public_key({ from });
 
-        const suggestedParams = await this.getSuggestedParams();
+        // const suggestedParams = await this.getSuggestedParams();
         
         // Get a crafter that uses our custom PaymentTxBuilder
         const crafter = CrafterFactory.getCrafter("algorand", this.configService);
@@ -106,8 +106,10 @@ export class TransactionService implements OnModuleInit {
             throw new Error('Invalid payment parameters');
         }
 
+        const suggestedParams = await this.getSuggestedParams();
+
         try {
-            const encoded = (await this.makePaymentTxn(from, to, amt)).get().encode();
+            const encoded = (await this.makePaymentTxn(from, to, amt, suggestedParams)).get().encode();
 
             const txnId = await this.signAndSubmitTransaction(encoded, from);
             
@@ -458,6 +460,152 @@ export class TransactionService implements OnModuleInit {
      * @param transactions Array of transaction configurations
      * @returns Transaction ID and error information
      */
+    /**
+     * Creates a transaction group with multiple transaction types using algosdk directly
+     * @param from Sender address (wallet key name)
+     * @param transactions Array of transaction configurations
+     * @returns Transaction ID and error information
+     */
+    async groupTransactionWithAlgosdk(
+        from: string,
+        transactions: Array<{
+            type: 'payment' | 'application' | 'asset-transfer' | 'asset-create' | 'opt-in' | 'opt-out',
+            params: any
+        }>
+    ): Promise<{ txnId: string, error: string }> {
+        try {
+            const publicKey: Buffer = await this.walletService.getPublicKey(from);
+            const fromAddr = EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
+            const suggestedParams = await this.getSuggestedParams();
+            console.log(suggestedParams);
+            
+            // Create individual transactions based on their type using algosdk directly
+            const txObjects = [];
+            
+            for (const txConfig of transactions) {
+                let txObject;
+                
+                switch (txConfig.type) {
+                    case 'payment':
+                        // Payment transaction using algosdk
+                        txObject = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+                            sender: fromAddr,
+                            receiver: txConfig.params.to,
+                            amount: txConfig.params.amount,
+                            suggestedParams: suggestedParams
+                        });
+                        break;
+                    case 'application':
+                        // Application call transaction using algosdk
+                        const appArgs = txConfig.params.appArgs ? 
+                            txConfig.params.appArgs.map(arg => new Uint8Array(Buffer.from(arg))) : 
+                            [];
+                            
+                        const accounts = txConfig.params.accounts || [];
+
+                        var sp = suggestedParams;
+                        sp.fee = BigInt(txConfig.params.fee)
+
+                        txObject = algosdk.makeApplicationNoOpTxnFromObject({
+                            sender: fromAddr,
+                            appIndex: txConfig.params.appIndex,
+                            appArgs: appArgs,
+                            accounts: accounts,
+                            foreignApps: txConfig.params.foreignApps || [],
+                            foreignAssets: txConfig.params.foreignAssets || [],
+                            suggestedParams: sp,})
+                        break;
+                    case 'asset-transfer':
+                        // Asset transfer transaction using algosdk
+                        txObject = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+                            sender: fromAddr,
+                            receiver: txConfig.params.to,
+                            assetIndex: txConfig.params.assetIndex,
+                            amount: txConfig.params.amount,
+                            suggestedParams: suggestedParams
+                        });
+                        break;
+                    case 'asset-create':
+                        // Asset creation transaction using algosdk
+                        txObject = algosdk.makeAssetCreateTxnWithSuggestedParamsFromObject({
+                            sender: fromAddr,
+                            total: txConfig.params.total,
+                            decimals: txConfig.params.decimals,
+                            defaultFrozen: txConfig.params.defaultFrozen || false,
+                            unitName: txConfig.params.unitName,
+                            assetName: txConfig.params.assetName,
+                            manager: txConfig.params.manager || fromAddr,
+                            reserve: txConfig.params.reserve || fromAddr,
+                            freeze: txConfig.params.freeze || fromAddr,
+                            clawback: txConfig.params.clawback || fromAddr,
+                            suggestedParams: suggestedParams
+                        });
+                        break;
+                    case 'opt-in':
+                        // Asset opt-in transaction using algosdk
+                        txObject = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+                            sender: fromAddr,
+                            receiver: fromAddr,
+                            assetIndex: txConfig.params.assetIndex,
+                            amount: 0,
+                            suggestedParams: suggestedParams
+                        });
+                        break;
+                    case 'opt-out':
+                        // Asset opt-out transaction using algosdk
+                        txObject = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+                            sender: fromAddr,
+                            receiver: txConfig.params.closeTo,
+                            assetIndex: txConfig.params.assetIndex,
+                            amount: 0,
+                            closeRemainderTo: txConfig.params.closeTo,
+                            suggestedParams: suggestedParams
+                        });
+                        break;
+                    default:
+                        throw new Error(`Unsupported transaction type: ${txConfig.type}`);
+                }
+                
+                txObjects.push(txObject);
+            }
+            
+            // Assign group ID using algosdk
+            const txnGroup = algosdk.assignGroupID(txObjects);
+            
+            // Sign all transactions
+            const signedTxns = [];
+
+            const txnCrafter = new AlgorandTransactionCrafter('testnet-v1.0', 'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=')
+            
+            for (let i = 0; i < txnGroup.length; i++) {
+                try {
+                    // Sign the transaction using the wallet service
+                    const signedTxn = await this.sign(txnGroup[i].bytesToSign(), from);
+                    
+                    // Add signature to the transaction
+                    const ready = await txnCrafter.addSignature(txnGroup[i].bytesToSign(), signedTxn);
+                    signedTxns.push(ready);
+                } catch (error) {
+                    console.error(`Error signing transaction ${i+1}:`, error);
+                    throw new Error(`Failed to sign transaction ${i+1}: ${error.message}`);
+                }
+            }
+            
+            // Submit the signed transaction group
+            try {
+                const bytestoSubmit = concatArrays(...signedTxns);
+                const txnId = await this.walletService.submitTransaction(bytestoSubmit);
+                return { txnId, error: null };
+            } catch (error) {
+                console.error('Error in group transaction processing:', error);
+                return { txnId: null, error: error.message || 'Unknown error in group transaction' };
+            }
+        } catch (error) {
+            console.error('Error in groupTransactionWithAlgosdk:', error);
+            return { txnId: null, error: error.message || 'Unknown error' };
+        }
+    }
+    
     async groupTransaction(
         from: string,
         transactions: Array<{
@@ -483,7 +631,7 @@ export class TransactionService implements OnModuleInit {
                     case 'payment':
                         // Payment transaction
                         const paymentParams = txConfig.params;
-                        txObject = await this.makePaymentTxn(from, paymentParams.to, paymentParams.amount);
+                        txObject = await this.makePaymentTxn(from, paymentParams.to, paymentParams.amount, suggestedParams);
                         break;
                         
                     case 'application':
@@ -554,9 +702,6 @@ export class TransactionService implements OnModuleInit {
                 
                 txObjects.push(txObject);
             }
-
-            console.log(txObjects);
-            
             
             // Group the transactions
             const groupTx = crafter.groupTransaction(
@@ -566,9 +711,8 @@ export class TransactionService implements OnModuleInit {
                 txObjects
             ).get();
             
-            const encodedTxns = groupTx.encodeAll();           
-            
-            console.log(encodedTxns);
+            const encodedTxns = groupTx.encodeAll();       
+                        
             
             const signedTxns = [];
             
@@ -584,8 +728,8 @@ export class TransactionService implements OnModuleInit {
                 }
             }
             
-            // Now submit all transactions as a group
-            try {
+            // // Now submit all transactions as a group
+          try {
 
                 const bytestoSubmit = concatArrays(...signedTxns);
                 
