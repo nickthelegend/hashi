@@ -8,6 +8,7 @@ export class AssetCreate {
 	lv: number
 	gen: string
 	gh: Uint8Array
+	caid: number
 
 	apar: {
 		dc?: bigint
@@ -40,6 +41,7 @@ export interface IAssetCreateTxBuilder {
 	addUrl(url: string): IAssetCreateTxBuilder
 	addName(name: string): IAssetCreateTxBuilder
 	addUnit(unit: string): IAssetCreateTxBuilder
+	addAssetId(assetId: number): IAssetCreateTxBuilder
 	addDefaultFreeze(defaultFrozen: boolean): IAssetCreateTxBuilder
 	addDecimals(decimals: bigint): IAssetCreateTxBuilder
 	addTotalTokens(totalTokens: number): IAssetCreateTxBuilder
@@ -65,7 +67,6 @@ export class AssetCreateTxBuilder implements IAssetCreateTxBuilder {
 			// dc: decimals,
 			t: totalTokens
 		}
-
 		
 		// defaultFreeze ? this.tx.apar.df = defaultFreeze : null
 	}
@@ -137,6 +138,11 @@ export class AssetCreateTxBuilder implements IAssetCreateTxBuilder {
 
 	addDefaultFreeze(defaultFreeze: boolean): IAssetCreateTxBuilder {
 		this.tx.apar.df = defaultFreeze
+		return this
+	}
+
+	addAssetId(assetId: number): IAssetCreateTxBuilder {
+		this.tx.caid = assetId
 		return this
 	}
 

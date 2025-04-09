@@ -34,6 +34,11 @@ export class CreateAssetRequiredDto {
 
 // DTO for optional parameters
 export class CreateAssetOptionalDto {
+
+    @IsNumber()
+    @Type(() => Number)
+    assetId?: number;
+    
     @IsString()
     @IsOptional()
     assetName?: string;
@@ -72,6 +77,7 @@ export class CreateAssetDto extends CreateAssetRequiredDto implements Partial<Cr
     reserveAddress?: string;
     freezeAddress?: string;
     clawbackAddress?: string;
+    assetId: any;
 }
 
 @ApiTags("Transaction")
@@ -89,10 +95,11 @@ export class Transaction {
     }
 
     @Post("asset")
-    async createAsset(@Body() body: CreateAssetDto): Promise<{ assetId: string}> {
+    async assetConfig(@Body() body: CreateAssetDto): Promise<{ assetId: string}> {
 
         const decimals = Number(body.decimals)
         const totalTokens = Number(body.totalTokens)
+        const assetId = Number(body.assetId)
 
         let defaultFrozen = false;
         if (body.defaultFrozen !== undefined) {
@@ -107,6 +114,7 @@ export class Transaction {
         }
 
         const params = {
+            assetId: assetId,
             assetName: body.assetName,
             url: body.url,
             defaultFrozen: defaultFrozen,
@@ -273,17 +281,17 @@ export class Transaction {
             {
                 type: 'payment' as const,
                 params: {
-                    to: '5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI',//body.receiverAddress,
+                    to: 'O3KJ7QUIEA3BGIDGJ6CRR7NMAKBFX4S4DK5QKNJNZDMUPECOZ5T4MFIULQ',//body.receiverAddress,
                     amount: 202000//body.amount
                 }
             },
             {
                 type: 'application' as const,
                 params: {
-                    appIndex: 736444345,
+                    appIndex: 737103271,
                     appArgs: [new Uint8Array(sha512_256.array(Buffer.from("opt_in_to_asset(pay)void")).slice(0, 4))],
                     // accounts: ['5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI'],
-                    foreignAssets: [735261053],
+                    foreignAssets: [733186475],
                     fee: 2000
                 }
             }
@@ -438,7 +446,7 @@ export class Transaction {
             'CiADAAEEJgEIYXNzZXRfaWSABG6nG1OABBV0U1qABCIZu6eABPFXdyaABDOzSZ42GgCOBQABABYALAA4AEQAMRkURDEYFEQ2GgEXNhoCF4gAPiNDMRkURDEYRDEWIwlJOBAjEkSIAD0jQzEZFEQxGESIAGQjQzEZFEQxGESIAH0jQzEZgQUSRDEYRIgAiCNDigIAKIv+Z4AIcXVhbnRpdHmL/2eJigEAMQAyCRJEMgoiKGVEcABFARREi/84BzIKEkSxIihlRDIKIrISshSyESSyECKyAbOJigAAMQAiKGVEcABFARREsSIoZUQxACKyErIUshEkshAisgGziYoAALEiKGVEMQAjshKyFLIRJLIQIrIBs4mKAAAxADIJEkSxIihlRDIJSbIVIrISshSyESSyECKyAbOxMglJsgkisgiyByOyECKyAbOJ',
             'CoEBQw==', 
             { numByteSlice: 0, numUint: 2 }, { numByteSlice: 0, numUint: 0 },
-            [new Uint8Array(sha512_256.array(Buffer.from("create_application(uint64,uint64)void")).slice(0, 4)), algosdk.encodeUint64(735261053), algosdk.encodeUint64(1) ], 
+            [new Uint8Array(sha512_256.array(Buffer.from("create_application(uint64,uint64)void")).slice(0, 4)), algosdk.encodeUint64(733186475), algosdk.encodeUint64(10) ], 
             [], [],[],
             1000
             );

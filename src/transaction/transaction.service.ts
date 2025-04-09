@@ -16,6 +16,7 @@ import { concatArrays } from "../utils/utils"
 
 
 interface Assetparams {
+    assetId?: number;
     assetName?: string;
     url?: string;
     defaultFrozen?: boolean;
@@ -121,7 +122,7 @@ export class TransactionService implements OnModuleInit {
     }
 
 
-    async assetCreationTxn(params:Assetparams, from: string, unit: string, decimals: number, totalTokens: number) { 
+    async assetConfigTxn(params:Assetparams, from: string, unit: string, decimals: number, totalTokens: number) { 
         const fromAddr = await this.get_public_key({ from });
 
         const suggestedParams = await this.getSuggestedParams();
@@ -130,6 +131,9 @@ export class TransactionService implements OnModuleInit {
 
         const assetCreateTxBuilder = crafter.asset(fromAddr, unit, decimals, totalTokens, Number(suggestedParams.firstValid), Number(suggestedParams.lastValid), params.defaultFrozen)
 
+        if (params.assetId) {
+            assetCreateTxBuilder.addAssetId(params.assetId);
+        }
         // Add optional parameters if they exist
         if (params.assetName) {
             assetCreateTxBuilder.addName(params.assetName);
@@ -151,7 +155,7 @@ export class TransactionService implements OnModuleInit {
             assetCreateTxBuilder.addClawbackAddress(params.clawbackAddress);
         }
         
-        return assetCreateTxBuilder.get()
+        return assetCreateTxBuilder
     }
 
     /**
@@ -169,7 +173,7 @@ export class TransactionService implements OnModuleInit {
         }
  
         try {
-            const encoded = (await this.assetCreationTxn(params, from, unit, decimals, totalTokens)).encode(); 
+            const encoded = (await this.assetConfigTxn(params, from, unit, decimals, totalTokens)).get().encode(); 
 
             const txnId = await this.signAndSubmitTransaction(encoded, from);
 
@@ -179,7 +183,7 @@ export class TransactionService implements OnModuleInit {
 
             const assetId = transaction.transaction.createdAssetIndex;
 
-            return { assetId: assetId.toString(), txnId, error: null};
+            return { assetId: assetId?.toString() || params.assetId, txnId, error: null};
 
         } catch (error) {
             console.error('Asset creation error:', error);
@@ -199,7 +203,7 @@ export class TransactionService implements OnModuleInit {
         return this.txnCrafter.transferAsset(fromAddr, params.assetId, params.to, params.amount)
                                         .addFirstValidRound(Number(suggestedParams.firstValid))
                                         .addLastValidRound(Number(suggestedParams.lastValid))
-                                        .get()
+                                        
     }
 
 
@@ -217,7 +221,7 @@ export class TransactionService implements OnModuleInit {
         }
 
         try {            
-            const encoded = (await this.transferTokenTxn({ from, to, amount, assetId })).encode();
+            const encoded = (await this.transferTokenTxn({ from, to, amount, assetId })).get().encode();
 
             const txnId = await this.signAndSubmitTransaction(encoded, from);
 
@@ -436,6 +440,9 @@ export class TransactionService implements OnModuleInit {
                     accounts,
                     fee
                 }
+
+                const  call1 = (await this.applicationCallTxn(params)).get(); console.log(call1);
+                
                 const encoded = (await this.applicationCallTxn(params)).get().encode();
 
                 const txnId = await this.signAndSubmitTransaction(encoded, from);
@@ -668,7 +675,7 @@ export class TransactionService implements OnModuleInit {
                     case 'asset-create':
                         // Asset creation transaction
                         const createParams = txConfig.params;
-                        txObject = await this.assetCreationTxn(
+                        txObject = await this.assetConfigTxn(
                             createParams, 
                             from, 
                             createParams.assetName, 
