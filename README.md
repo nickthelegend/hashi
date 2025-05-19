@@ -79,6 +79,11 @@ $ docker-compose up -d vault
 
 # Init and unseal Vault
 $ yarn run vault:init
+
+# Run this command only once during initial setup
+$ yarn run vault:transit
+
+
 ``` 
 
 ## 2. Setup Proper ENVIRONMENT VARIABLES
