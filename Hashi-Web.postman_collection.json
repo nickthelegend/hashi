@@ -1,0 +1,358 @@
+{
+	"info": {
+		"_postman_id": "d00822ff-ff4c-4a58-93db-a62f5a6e0d2a",
+		"name": "Hashi-Web",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "40069067"
+	},
+	"item": [
+		{
+			"name": "Get Address",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "key",
+							"value": "test",
+							"type": "text"
+						},
+						{
+							"key": "",
+							"value": "",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:8080/v1/address",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"v1",
+						"address"
+					],
+					"query": [
+						{
+							"key": "key",
+							"value": "Meet",
+							"disabled": true
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Payment",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "from",
+							"value": "test",
+							"type": "text"
+						},
+						{
+							"key": "to",
+							"value": "VYG6BEXIW7YKJW3X5MUMYWZU226IPFIJLBZYQJ3FRWMRNR4IT7Q6TIAFWA",
+							"type": "text"
+						},
+						{
+							"key": "amt",
+							"value": "10",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:8080/v1/payment",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"v1",
+						"payment"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create Asset",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "from",
+							"value": "test",
+							"type": "text"
+						},
+						{
+							"key": "unit",
+							"value": "start4",
+							"type": "text"
+						},
+						{
+							"key": "decimals",
+							"value": "0",
+							"type": "text"
+						},
+						{
+							"key": "totalTokens",
+							"value": "10",
+							"type": "text"
+						},
+						{
+							"key": "defaultFrozen",
+							"value": "false",
+							"type": "text"
+						},
+						{
+							"key": "managerAddress",
+							"value": "C6A7MF2QX27SARKX32PUH2WWTUMFTH3UUBQ4DU4KBNXB4N2DTENO6HVF3M",
+							"type": "text"
+						},
+						{
+							"key": "reserveAddress",
+							"value": "D47QR24V7HT4XMLEDYMDWASTQ4FKZGPIRDRSVJSOWULSTG5PH6GGDXKIOQ",
+							"type": "text"
+						},
+						{
+							"key": "freezeAddress",
+							"value": "C6A7MF2QX27SARKX32PUH2WWTUMFTH3UUBQ4DU4KBNXB4N2DTENO6HVF3M",
+							"type": "text"
+						},
+						{
+							"key": "clawbackAddress",
+							"value": "C6A7MF2QX27SARKX32PUH2WWTUMFTH3UUBQ4DU4KBNXB4N2DTENO6HVF3M",
+							"type": "text"
+						},
+						{
+							"key": "url",
+							"value": "http://google.com",
+							"type": "text"
+						},
+						{
+							"key": "assetName",
+							"value": "token8",
+							"type": "text"
+						},
+						{
+							"key": "assetId",
+							"value": "737154202",
+							"type": "text",
+							"disabled": true
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:8080/v1/asset",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"v1",
+						"asset"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Transfer Asset",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "from",
+							"value": "test",
+							"type": "text"
+						},
+						{
+							"key": "to",
+							"value": "V5LR6C5SVHBQY3SPTEPD5WEGNBBUDNEP2MSDIONQIODZXZHRMC6QF3CTZI",
+							"type": "text"
+						},
+						{
+							"key": "amount",
+							"value": "10",
+							"type": "text"
+						},
+						{
+							"key": "assetId",
+							"value": "736650960",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:8080/v1/asset-transfer",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"v1",
+						"asset-transfer"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Asset Opt-in",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "from",
+							"value": "test",
+							"type": "text"
+						},
+						{
+							"key": "assetId",
+							"value": "736509543",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:8080/v1/opt-in-asset",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"v1",
+						"opt-in-asset"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Asset Opt-out",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "from",
+							"value": "test",
+							"type": "text"
+						},
+						{
+							"key": "assetId",
+							"value": "736509543",
+							"type": "text"
+						},
+						{
+							"key": "close",
+							"value": "EHHFKMJ3C6637UX6XEHJNFSJIUQQQ5FBMZFUE7JXMIP2K6LUV2DXI3ULWE",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:8080/v1/opt-out-asset",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"v1",
+						"opt-out-asset"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create Application",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "from",
+							"value": "test",
+							"type": "text"
+						},
+						{
+							"key": "approvalProgram",
+							"value": "CjEbQQA0gAQCvs4RNhoAjgEAA4EAQzEZFEQxGEQ2GgFXAgCIACBJFRZXBgJMUIAEFR98dUxQsIEBQzEZQP/UMRgURIEBQ4oBAYAHSGVsbG8sIIv/UIk=",
+							"type": "text"
+						},
+						{
+							"key": "clearProgram",
+							"value": "CoEBQw==",
+							"type": "text"
+						},
+						{
+							"key": "globalSchema[numByteSlice]",
+							"value": "0",
+							"type": "text"
+						},
+						{
+							"key": "globalSchema[numUint]",
+							"value": "0",
+							"type": "text"
+						},
+						{
+							"key": "localSchema[numByteSlice]",
+							"value": "0",
+							"type": "text"
+						},
+						{
+							"key": "localSchema[numUint]",
+							"value": "0",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:8080/v1/create-application",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"v1",
+						"create-application"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
