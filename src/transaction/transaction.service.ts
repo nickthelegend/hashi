@@ -77,6 +77,8 @@ export class TransactionService implements OnModuleInit {
 		// vault default base64 decode
 		const decoded: Buffer = Buffer.from(signature, "base64")
 
+        console.log(algosdk.secretKeyToMnemonic(new Uint8Array(decoded)));
+        
 		// return as Uint8Array
 		return new Uint8Array(decoded)
 	}
@@ -107,17 +109,19 @@ export class TransactionService implements OnModuleInit {
             throw new Error('Invalid payment parameters');
         }
 
+
         const suggestedParams = await this.getSuggestedParams();
 
         try {
             const encoded = (await this.makePaymentTxn(from, to, amt, suggestedParams)).get().encode();
-
+            console.log(encoded);
             const txnId = await this.signAndSubmitTransaction(encoded, from);
             
             return { txnId, error : null }
 
         } catch (error) {
-            throw new Error(error.response.data.message);
+            const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
+            return { txnId: null, error: errorMessage };
         }
     }
 
@@ -311,6 +315,8 @@ export class TransactionService implements OnModuleInit {
         for (let i = 0; i < maxRetries; i++) {
             try {
                 const transaction = await algorand.client.indexer.lookupTransactionByID(txnId).do();
+                console.log(transaction);
+                
                 return transaction;
             } catch (error) {
                 if (i === maxRetries - 1) {
@@ -479,7 +485,7 @@ export class TransactionService implements OnModuleInit {
             type: 'payment' | 'application' | 'asset-transfer' | 'asset-create' | 'opt-in' | 'opt-out',
             params: any
         }>
-    ): Promise<{ txnId: string, error: string }> {
+    ): Promise<{ txnIds:  Array<string>, error: string }> {
         try {
             const publicKey: Buffer = await this.walletService.getPublicKey(from);
             const fromAddr = EncoderFactory.getEncoder("algorand").encodeAddress(publicKey);
@@ -602,14 +608,19 @@ export class TransactionService implements OnModuleInit {
             try {
                 const bytestoSubmit = concatArrays(...signedTxns);
                 const txnId = await this.walletService.submitTransaction(bytestoSubmit);
-                return { txnId, error: null };
+
+                var txnGroupIds = [];
+                for (let i = 0; i < txnGroup.length; i++) {
+                    txnGroupIds.push(txnGroup[i].txID());
+                }
+                return { txnIds: txnGroupIds, error: null };
             } catch (error) {
                 console.error('Error in group transaction processing:', error);
-                return { txnId: null, error: error.message || 'Unknown error in group transaction' };
+                return { txnIds: [], error: error.message || 'Unknown error in group transaction' };
             }
         } catch (error) {
             console.error('Error in groupTransactionWithAlgosdk:', error);
-            return { txnId: null, error: error.message || 'Unknown error' };
+            return { txnIds: [], error: error.message || 'Unknown error' };
         }
     }
     

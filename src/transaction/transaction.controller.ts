@@ -13,7 +13,7 @@ import {sha512_256} from "js-sha512";
 import { AlgorandEncoder, AlgorandTransactionCrafter, AssetParamsBuilder } from '@algorandfoundation/algo-models'
 import { concatArrays } from "../utils/utils"
 import { log } from "console";
-
+import nacl from 'tweetnacl';
 
 // DTO for required parameters
 export class CreateAssetRequiredDto {
@@ -148,63 +148,63 @@ export class Transaction {
             type: 'payment' | 'application' | 'asset-transfer' | 'asset-create' | 'opt-in' | 'opt-out',
             params: any
         }>
-    }): Promise<{ txnId: string, error: string }> {
+    }): Promise<{ txnIds: Array<string>, error: string }> {
         try {
             // Validate input
             if (!body.from) {
-                return { txnId: null, error: 'Sender address (from) is required' };
+                return { txnIds: [], error: 'Sender address (from) is required' };
             }
             
             if (!Array.isArray(body.transactions) || body.transactions.length === 0) {
-                return { txnId: null, error: 'At least one transaction is required' };
+                return { txnIds: [], error: 'At least one transaction is required' };
             }
             
             if (body.transactions.length > 16) {
-                return { txnId: null, error: 'Maximum 16 transactions allowed in a group' };
+                return { txnIds: [], error: 'Maximum 16 transactions allowed in a group' };
             }
             
             // Validate each transaction
             for (const txn of body.transactions) {
                 if (!txn.type) {
-                    return { txnId: null, error: 'Transaction type is required for all transactions' };
+                    return { txnIds: [], error: 'Transaction type is required for all transactions' };
                 }
                 
                 if (!txn.params) {
-                    return { txnId: null, error: 'Transaction parameters are required for all transactions' };
+                    return { txnIds: [], error: 'Transaction parameters are required for all transactions' };
                 }
                 
                 // Type-specific validation
                 switch (txn.type) {
                     case 'payment':
                         if (!txn.params.to) {
-                            return { txnId: null, error: 'Receiver address is required for payment transactions' };
+                            return { txnIds: [], error: 'Receiver address is required for payment transactions' };
                         }
                         if (txn.params.amount === undefined) {
-                            return { txnId: null, error: 'Amount is required for payment transactions' };
+                            return { txnIds: [], error: 'Amount is required for payment transactions' };
                         }
                         break;
                     case 'application':
                         if (!txn.params.appIndex && txn.params.appIndex !== 0) {
-                            return { txnId: null, error: 'Application ID is required for application call transactions' };
+                            return { txnIds: [], error: 'Application ID is required for application call transactions' };
                         }
                         break;
                     case 'asset-transfer':
                     case 'opt-in':
                     case 'opt-out':
                         if (!txn.params.assetIndex && txn.params.assetIndex !== 0) {
-                            return { txnId: null, error: 'Asset ID is required for asset transactions' };
+                            return { txnIds: [], error: 'Asset ID is required for asset transactions' };
                         }
                         break;
                     case 'asset-create':
                         if (!txn.params.total) {
-                            return { txnId: null, error: 'Total supply is required for asset creation' };
+                            return { txnIds: [], error: 'Total supply is required for asset creation' };
                         }
                         if (txn.params.decimals === undefined) {
-                            return { txnId: null, error: 'Decimals is required for asset creation' };
+                            return { txnIds: [], error: 'Decimals is required for asset creation' };
                         }
                         break;
                     default:
-                        return { txnId: null, error: `Unsupported transaction type: ${txn.type}` };
+                        return { txnIds: [], error: `Unsupported transaction type: ${txn.type}` };
                 }
             }
             
@@ -272,7 +272,7 @@ export class Transaction {
         receiverAddress: string,
         amount: number,
         assetId: number
-    }): Promise<{ txnId: string, error: string }> {
+    }): Promise<{ txnIds: Array<string>, error: string }> {
         // Create a group transaction with two transactions:
         // 1. A payment transaction
         // 2. An asset transfer transaction
@@ -288,10 +288,10 @@ export class Transaction {
             {
                 type: 'application' as const,
                 params: {
-                    appIndex: 737103271,
+                    appIndex: 739832186,
                     appArgs: [new Uint8Array(sha512_256.array(Buffer.from("opt_in_to_asset(pay)void")).slice(0, 4))],
                     // accounts: ['5OD3JPPNBR2PYDCB2I2XJVW7FVPA7A6ECM3GXG5H6OOIG2HJLMS7SSPFKI'],
-                    foreignAssets: [733186475],
+                    foreignAssets: [737154202],
                     fee: 2000
                 }
             }
@@ -302,14 +302,51 @@ export class Transaction {
             transactions
         );
 
-        return await this.txnService.groupTransaction(
-            body.from,
-            transactions
-        );
+        // return await this.txnService.groupTransaction(
+        //     body.from,
+        //     transactions
+        // );
     }
 
+    @Post("example-asset-creation-with-application-creation-1")
+    async exampleAssetCreationWithApplicationCreation1(): Promise<any> {
+
+        // const d = 2 ** 53 - 1
+    
+        const algosTransferAnd = [
+          {
+            type: 'asset-create' as const,
+            params: {
+              total: 3,
+              decimals: 0,
+              defaultFrozen: false,
+              unitName: "REM",
+              assetName: 'rem',
+            },
+          },
+          {
+            type: "application" as const,
+            params: {
+              fee: 1000,
+              appIndex: 0,
+              appArgs: [
+                new Uint8Array(
+                  sha512_256.array(Buffer.from("create_application(uint64,uint64)void")).slice(0, 4)
+                ),
+                algosdk.encodeUint64(0),
+                algosdk.encodeUint64(100),
+              ],
+            },
+          },
+          ,
+        ];
+        return await this.txnService.groupTransactionWithAlgosdk(
+          'test',
+          algosTransferAnd)
+      }
+
     @Post("example-group-transaction-1")
-    async exampleGroupTransaction_1(): Promise<{ txnId: string, error: string }> {
+    async exampleGroupTransaction_1(): Promise<{ txnIds: string[], error: string }> {
         // Create a group transaction with two transactions:
         // 1. A payment transaction
         // 2. An asset transfer transaction
@@ -335,11 +372,44 @@ export class Transaction {
             'test',
             transactions
         );
+    }
 
-        // return await this.txnService.groupTransaction(
-        //     body.from,
-        //     transactions
-        // );
+    async exampleTransaction(): Promise<void> {
+        const algorand = this.txnService.algorand("testnet")
+        const transaction = await algorand.client.indexer.lookupTransactionByID('WIQFQF4PNGQGMW6GSQDNMTHKWQLA2T224COXAO5PGQNPHQMJ2ROA').do();
+        
+        console.log(transaction.transaction.innerTxns[0].createdAssetIndex);
+        
+    }
+    
+    @Get("group-transactions/:groupId")
+    async getGroupTransactions(@Param('groupId') groupId: string): Promise<any> {
+        try {
+            // Get the Algorand client
+            const algorand = this.txnService.algorand("testnet");
+            
+            // Search for transactions with this group ID
+            const response = await algorand.client.indexer
+                .searchForTransactions()
+                .do();
+                
+            // Filter manually for transactions with matching group ID
+            // Group ID can be in base64 or hex format
+            const matchingTxns = response.transactions.filter(tx => {
+                if (!tx.group) return false;
+                
+                // Convert the group ID to both formats for comparison
+                const txGroupBase64 = Buffer.from(tx.group).toString('base64');
+                const txGroupHex = Buffer.from(tx.group).toString('hex');
+                
+                return txGroupBase64 === groupId || txGroupHex === groupId;
+            });
+                
+            return matchingTxns;
+        } catch (error) {
+            console.error('Error fetching group transactions:', error);
+            return { error: error.message || 'Error fetching group transactions' };
+        }
     }
 
     getLocalAlgodClient() {
@@ -446,7 +516,7 @@ export class Transaction {
             'CiADAAEEJgEIYXNzZXRfaWSABG6nG1OABBV0U1qABCIZu6eABPFXdyaABDOzSZ42GgCOBQABABYALAA4AEQAMRkURDEYFEQ2GgEXNhoCF4gAPiNDMRkURDEYRDEWIwlJOBAjEkSIAD0jQzEZFEQxGESIAGQjQzEZFEQxGESIAH0jQzEZgQUSRDEYRIgAiCNDigIAKIv+Z4AIcXVhbnRpdHmL/2eJigEAMQAyCRJEMgoiKGVEcABFARREi/84BzIKEkSxIihlRDIKIrISshSyESSyECKyAbOJigAAMQAiKGVEcABFARREsSIoZUQxACKyErIUshEkshAisgGziYoAALEiKGVEMQAjshKyFLIRJLIQIrIBs4mKAAAxADIJEkSxIihlRDIJSbIVIrISshSyESSyECKyAbOxMglJsgkisgiyByOyECKyAbOJ',
             'CoEBQw==', 
             { numByteSlice: 0, numUint: 2 }, { numByteSlice: 0, numUint: 0 },
-            [new Uint8Array(sha512_256.array(Buffer.from("create_application(uint64,uint64)void")).slice(0, 4)), algosdk.encodeUint64(733186475), algosdk.encodeUint64(10) ], 
+            [new Uint8Array(sha512_256.array(Buffer.from("create_application(uint64,uint64)void")).slice(0, 4)), algosdk.encodeUint64(737154202), algosdk.encodeUint64(10) ], 
             [], [],[],
             1000
             );
@@ -479,6 +549,41 @@ export class Transaction {
         )
 
 
+    }
+
+
+    @Post('get-mnemonic')
+    async getmnemonic(key: string): Promise<{ mnemonic: string, account: string }> {
+        const keyData = {
+            "keys": {
+              "1": "WdFevOFp0vDQ5GXPVGmhYo3awV/toltf3esDC4TQwPZfswt8Dbk049IyCY6xpq5/veGkn6ZQQ+E72XwTAHUgWw=="
+            },
+            "type": "ed25519",
+            "name": "superadmin1"
+          };
+  
+        // Extract the key material (base64-encoded)
+        const keyBase64 = keyData.keys["1"];
+        
+        // Decode the base64 key
+        const keyBytes = Buffer.from(keyBase64, 'base64');
+        
+        // For ed25519 keys, the first 32 bytes are the private key
+        const seed = keyBytes.slice(0, 32);
+        
+        // Generate the keypair using nacl
+        const keyPair = nacl.sign.keyPair.fromSeed(seed);
+        
+        // Algorand expects a 64-byte private key (private + public concatenated)
+        const algoSecretKey = new Uint8Array(64);
+        algoSecretKey.set(keyPair.secretKey.slice(0, 32));
+        algoSecretKey.set(keyPair.publicKey, 32);
+        
+        // Get Algorand mnemonic and address
+        const mnemonic = algosdk.secretKeyToMnemonic(algoSecretKey);
+        const account = algosdk.encodeAddress(keyPair.publicKey);
+        
+        return { mnemonic, account };
     }
 
 }

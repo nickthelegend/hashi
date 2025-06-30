@@ -12,6 +12,13 @@
     hi-base32 "^0.5.1"
     js-sha512 "^0.8.0"
 
+"@algorandfoundation/algokit-utils@^8.2.0":
+  version "8.2.0"
+  resolved "https://registry.yarnpkg.com/@algorandfoundation/algokit-utils/-/algokit-utils-8.2.0.tgz#52e77bb8968fcb96bc4ab922d0b8f5b60070410a"
+  integrity sha512-/KW8CB9NYPyWH87B8hYogKdIJhoUSlpicvM7hmRcmgeAOHdNT4/RKuHlTg4Ah6mCCnO0wXJiOQmfKv7CGr0R7A==
+  dependencies:
+    buffer "^6.0.3"
+
 "@ampproject/remapping@^2.2.0":
   version "2.3.0"
   resolved "https://registry.yarnpkg.com/@ampproject/remapping/-/remapping-2.3.0.tgz#ed441b6fa600072520ce18b43d2c8cc8caecc7f4"
