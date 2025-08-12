@@ -21,8 +21,7 @@ WORKDIR /opt/app
 USER node
 RUN yarn
 
-RUN yarn run vault:init
-RUN yarn run vault:transit
+
 
 # RUN yarn
 # RUN yarn build
