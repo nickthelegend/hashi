@@ -14,13 +14,17 @@ RUN chown -R node:node /opt/app/
 # Change to app directory
 WORKDIR /opt/app
 
-# Enable debugging port
-EXPOSE 9200
+# # Enable debugging port
+# EXPOSE 9200
 
-# Dont run as root
+# # Dont run as root
 USER node
-
 RUN yarn
-RUN yarn build
 
-CMD [ "yarn", "start:dev" ]
+RUN yarn run vault:init
+RUN yarn run vault:transit
+
+# RUN yarn
+# RUN yarn build
+
+# CMD [ "yarn", "start:dev" ]

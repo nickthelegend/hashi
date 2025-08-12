@@ -8,7 +8,7 @@ console.log(`args : ${process.argv}`)
 const vaultSealKeysPath: string = process.argv[2]
 
 // init vault POST request
-axios.post('http://localhost:8200/v1/sys/init', {
+axios.post('http://localhost:80/v1/sys/init', {
   secret_shares: 1,
   secret_threshold: 1
 }).then(async (result) => {
@@ -20,7 +20,7 @@ axios.post('http://localhost:8200/v1/sys/init', {
   console.log(`token : ${token}`)
 
   // unseal vault server
-  const unsealResult = await axios.post('http://localhost:8200/v1/sys/unseal', {
+  const unsealResult = await axios.post('http://localhost:80/v1/sys/unseal', {
     secret_shares: 1,
     key: keys[0]
   }, {
@@ -40,7 +40,7 @@ axios.post('http://localhost:8200/v1/sys/init', {
   // trying to unseal
   const firstKey: string = JSON.parse(fs.readFileSync('vault-seal-keys.json').toString()).keys[0]
 
-  axios.post('http://localhost:8200/v1/sys/unseal', {
+  axios.post('http://localhost:80/v1/sys/unseal', {
     secret_shares: 1,
     key: firstKey
   }).then(async (result) => {

@@ -1,14 +1,14 @@
 import * as fs from 'fs';
 import axios from 'axios'
 
-axios.get('http://localhost:8200/v1/sys/init').then(async (res) => {
+axios.get('http://localhost:80/v1/sys/init').then(async (res) => {
     if(!res.data.initialized) throw new Error('vault is not initialized')
 
     // fetch root token
     const rootToken: string = JSON.parse(fs.readFileSync('vault-seal-keys.json').toString()).root_token
 
     // list mounts
-    const mounts = await axios.get('http://localhost:8200/v1/sys/mounts', {
+    const mounts = await axios.get('http://localhost:80/v1/sys/mounts', {
         headers: {
             'X-Vault-Token': rootToken
         }
@@ -16,7 +16,7 @@ axios.get('http://localhost:8200/v1/sys/init').then(async (res) => {
     console.log(`mounts : ${JSON.stringify(mounts.data)}`)
 
     // mount transit engine through POST
-    const mountTransitEngine = await axios.post('http://localhost:8200/v1/sys/mounts/transit', {
+    const mountTransitEngine = await axios.post('http://localhost:80/v1/sys/mounts/transit', {
         type: 'transit',
         config: {
             force_no_cache: true
